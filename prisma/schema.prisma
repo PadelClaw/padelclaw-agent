@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model MessageLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  from       String
+  body       String
+  role       String
+  durationMs Int?
+  toolCalls  String?
+  @@index([from])
+}
+
+model TrainerConfig {
+  id               Int      @id @default(autoincrement())
+  name             String
+  location         String
+  priceSingle      Int
+  pricePackage5    Int
+  pricePackage10   Int
+  availabilityJson String
+  language         String   @default("de")
+  calendarId       String   @default("primary")
+  updatedAt        DateTime @updatedAt
+}
+
+model Booking {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  playerName      String
+  playerPhone     String
+  slotStart       String
+  slotEnd         String
+  calendarEventId String?
+  status          String   @default("confirmed")
+  @@index([playerPhone])
+}
