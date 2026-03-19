@@ -21,6 +21,7 @@ model MessageLog {
 model TrainerConfig {
   id               Int      @id @default(autoincrement())
   name             String
+  trainerPhone     String?
   location         String
   priceSingle      Int
   pricePackage5    Int

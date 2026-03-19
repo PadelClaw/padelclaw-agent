@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runAgent } from '@/lib/agent/runner'
+import { runAgentTrainer } from '@/lib/agent/runner-trainer'
 import { prisma } from '@/lib/prisma'
+import { isTrainerPhone } from '@/lib/db/trainer-config'
 import { sendWhatsApp } from '@/lib/whatsapp-meta'
 
 export const runtime = 'nodejs'
@@ -60,7 +62,10 @@ async function processMessage(from: string, messageBody: string) {
   let response: string
 
   try {
-    response = await runAgent(messageBody, from)
+    const trainerMode = await isTrainerPhone(from)
+    response = trainerMode
+      ? await runAgentTrainer(messageBody, from)
+      : await runAgent(messageBody, from)
   } catch (err) {
     console.error('Agent error:', err)
     response = 'Entschuldigung, bitte versuche es nochmal.'
