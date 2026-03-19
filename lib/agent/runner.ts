@@ -17,9 +17,9 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
   const now = new Date()
   const player = await getOrCreatePlayer(from)
   const playerContext = player.name
-  const phoneContext = `\n\nDie WhatsApp-Nummer des Spielers ist: ${from}. Nutze diese als player_phone beim Buchen — frage NICHT danach.`
     ? `\n\nDer Spieler heißt: ${player.name}. Verwende diesen Namen und frage nicht erneut danach.`
     : ''
+  const phoneContext = `\n\nDie WhatsApp-Nummer des Spielers ist: ${from}. Nutze diese als player_phone beim Buchen — frage NICHT danach.`
 
   const systemPrompt = `${soul}
 
