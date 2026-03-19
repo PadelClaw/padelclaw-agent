@@ -1,35 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { runAgent } from '@/lib/agent/runner'
 import { prisma } from '@/lib/prisma'
+import { sendWhatsApp } from '@/lib/twilio'
+
+export const runtime = 'nodejs'
+
+const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
 export async function POST(req: NextRequest) {
+  const body = await req.text()
+  const params = new URLSearchParams(body)
+  const from = params.get('From') ?? ''
+  const messageBody = params.get('Body') ?? ''
+
+  // Respond to Twilio immediately (avoids 15s timeout)
+  // Process message and reply via REST API in the background
+  processMessage(from, messageBody).catch((err) =>
+    console.error('Background message processing failed:', err),
+  )
+
+  return new Response(EMPTY_TWIML, {
+    status: 200,
+    headers: { 'Content-Type': 'text/xml' },
+  })
+}
+
+async function processMessage(from: string, messageBody: string) {
   const start = Date.now()
+  let response: string
+
   try {
-    const body = await req.text()
-    const params = new URLSearchParams(body)
-    const from = params.get('From') ?? ''
-    const messageBody = params.get('Body') ?? ''
+    response = await runAgent(messageBody, from)
+  } catch (err) {
+    console.error('Agent error:', err)
+    response = 'Entschuldigung, bitte versuche es nochmal.'
+  }
 
-    const response = await runAgent(messageBody, from)
-    const durationMs = Date.now() - start
+  const durationMs = Date.now() - start
 
-    await prisma.messageLog.createMany({
+  await Promise.all([
+    prisma.messageLog.createMany({
       data: [
         { from, body: messageBody, role: 'user', durationMs: 0 },
         { from, body: response, role: 'assistant', durationMs },
       ],
-    })
-
-    const escaped = response
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escaped}</Message></Response>`
-    return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } })
-  } catch (err) {
-    console.error('Webhook error:', err)
-    const twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Message>Entschuldigung, es gab einen Fehler. Bitte versuche es nochmal.</Message></Response>'
-    return new NextResponse(twiml, { status: 200, headers: { 'Content-Type': 'text/xml' } })
-  }
+    }),
+    sendWhatsApp(from, response),
+  ])
 }

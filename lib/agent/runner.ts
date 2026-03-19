@@ -3,6 +3,7 @@ import * as path from 'path'
 import { ollamaClient, AGENT_MODEL } from './ollama'
 import { toolDefinitions, executeTool } from './tools'
 import { getHistory } from './history'
+import { getTrainerConfig } from '@/lib/db/trainer-config'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
 export async function runAgent(userMessage: string, from: string): Promise<string> {
@@ -11,10 +12,24 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
     ? fs.readFileSync(soulPath, 'utf-8')
     : 'Du bist ein hilfreicher Padel-Buchungsassistent.'
 
-  const history = await getHistory(from, 10)
+  // Lade Config direkt in System-Prompt — kein Tool-Call für simple Infos nötig
+  const config = await getTrainerConfig()
+  const now = new Date()
+  const systemPrompt = `${soul}
+
+## Aktuelle Trainer-Daten (direkt verfügbar, kein Tool-Call nötig):
+- Preise: ${config.priceSingle}€/Stunde | 5er-Paket: ${config.pricePackage5}€ | 10er-Paket: ${config.pricePackage10}€
+- Location: ${config.location}
+- Verfügbarkeit: Mo-Fr 09-19 Uhr, Sa 10-14 Uhr, So kein Training
+- Aktuelles Datum/Zeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+
+Nutze Tools NUR für: Slots anzeigen (check_slots), Buchung erstellen (create_booking), Buchung stornieren (cancel_booking).
+Preise und Verfügbarkeitsinfos kannst du direkt aus obigen Daten beantworten.`
+
+  const history = await getHistory(from, 8)
 
   const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: soul },
+    { role: 'system', content: systemPrompt },
     ...history,
     { role: 'user', content: userMessage },
   ]
@@ -40,7 +55,9 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
       continue
     }
 
-    return choice.message.content ?? 'Entschuldigung, bitte versuche es nochmal.'
+    const msg = choice.message as { content?: string | null; reasoning?: string }
+    const text = msg.content || msg.reasoning || ''
+    return text.trim() || 'Entschuldigung, bitte versuche es nochmal.'
   }
 
   return 'Entschuldigung, ich konnte deine Anfrage nicht verarbeiten.'
