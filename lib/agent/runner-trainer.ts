@@ -4,15 +4,62 @@ import { prisma } from '@/lib/prisma'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
-function formatUpcomingBookings(
-  bookings: Array<{
-    playerName: string
-    playerPhone: string
-    slotStart: string
-    slotEnd: string
-    status: string
-  }>,
-): string {
+type TrainerBooking = {
+  playerName: string
+  playerPhone: string
+  slotStart: string
+  slotEnd: string
+  status: string
+}
+
+const WEEKDAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function startOfDay(date: Date): Date {
+  const result = new Date(date)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+function formatDateLabel(date: Date): string {
+  const dayLabel = WEEKDAY_LABELS[date.getDay()]
+  const dateLabel = new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+  }).format(date)
+  return `${dayLabel} ${dateLabel}`
+}
+
+function formatTime(date: Date): string {
+  return new Intl.DateTimeFormat('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function getDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getIsoWeek(date: Date): number {
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7))
+  const firstThursday = new Date(target.getFullYear(), 0, 4)
+  firstThursday.setDate(firstThursday.getDate() + 3 - ((firstThursday.getDay() + 6) % 7))
+  return 1 + Math.round((target.getTime() - firstThursday.getTime()) / (7 * DAY_MS))
+}
+
+function formatUpcomingBookings(bookings: TrainerBooking[]): string {
   if (!bookings.length) {
     return '- Keine bestätigten Buchungen in den nächsten 7 Tagen.'
   }
@@ -21,23 +68,97 @@ function formatUpcomingBookings(
     .map((booking) => {
       const start = new Date(booking.slotStart)
       const end = new Date(booking.slotEnd)
-      const day = new Intl.DateTimeFormat('de-DE', {
-        weekday: 'short',
-        day: '2-digit',
-        month: '2-digit',
-      }).format(start)
-      const startTime = new Intl.DateTimeFormat('de-DE', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(start)
-      const endTime = new Intl.DateTimeFormat('de-DE', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(end)
-
-      return `- ${day} ${startTime}-${endTime}: ${booking.playerName} (${booking.playerPhone})`
+      return `- ${formatDateLabel(start)} ${formatTime(start)}-${formatTime(end)}: ${booking.playerName} (${booking.playerPhone})`
     })
     .join('\n')
+}
+
+function formatBookingsForWhatsApp(
+  bookings: TrainerBooking[],
+  variant: 'week' | 'today' | 'tomorrow',
+  now: Date = new Date(),
+): string {
+  const today = startOfDay(now)
+
+  if (variant === 'today' || variant === 'tomorrow') {
+    const targetDate = variant === 'today' ? today : addDays(today, 1)
+    const targetKey = getDateKey(targetDate)
+    const dayBookings = bookings
+      .filter((booking) => getDateKey(new Date(booking.slotStart)) === targetKey)
+      .sort((a, b) => new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime())
+
+    const title = variant === 'today' ? '📅 Dein Tag heute' : '📅 Dein Tag morgen'
+    const header = dayBookings.length ? `${formatDateLabel(targetDate)} 🟢` : `${formatDateLabel(targetDate)} ⚪ frei`
+
+    if (!dayBookings.length) {
+      return `${title}\n\n${header}\n\nGesamt: 0 Sessions`
+    }
+
+    const lines = dayBookings.map((booking) => `• ${formatTime(new Date(booking.slotStart))} ${booking.playerName}`)
+    return `${title}\n\n${header}\n${lines.join('\n')}\n\nGesamt: ${dayBookings.length} ${dayBookings.length === 1 ? 'Session' : 'Sessions'}`
+  }
+
+  const weekStart = addDays(today, -(today.getDay() === 0 ? 6 : today.getDay() - 1))
+  const allDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+  const bookingsByDay = new Map<string, TrainerBooking[]>()
+
+  for (const booking of bookings) {
+    const key = getDateKey(new Date(booking.slotStart))
+    const existing = bookingsByDay.get(key) ?? []
+    existing.push(booking)
+    bookingsByDay.set(key, existing)
+  }
+
+  const visibleDays = allDays.filter((day) => {
+    const weekday = day.getDay()
+    return weekday >= 1 && weekday <= 5 ? true : (bookingsByDay.get(getDateKey(day))?.length ?? 0) > 0
+  })
+
+  const sections = visibleDays.map((day) => {
+    const dayBookings = (bookingsByDay.get(getDateKey(day)) ?? []).sort(
+      (a, b) => new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime(),
+    )
+
+    if (!dayBookings.length) {
+      return `${formatDateLabel(day)} ⚪ frei`
+    }
+
+    const grouped = new Map<string, { time: string; playerName: string; count: number }>()
+    for (const booking of dayBookings) {
+      const time = formatTime(new Date(booking.slotStart))
+      const key = `${time}|${booking.playerName}`
+      const current = grouped.get(key)
+      if (current) {
+        current.count += 1
+      } else {
+        grouped.set(key, { time, playerName: booking.playerName, count: 1 })
+      }
+    }
+
+    const lines = Array.from(grouped.values()).map((entry) =>
+      entry.count > 1 ? `• ${entry.time} ${entry.playerName} (${entry.count} Sessions)` : `• ${entry.time} ${entry.playerName}`,
+    )
+
+    return `${formatDateLabel(day)} 🟢\n${lines.join('\n')}`
+  })
+
+  const totalSessions = bookings.length
+  return `📅 KW ${getIsoWeek(today)} – Deine Woche\n\n${sections.join('\n\n')}\n\nGesamt: ${totalSessions} ${totalSessions === 1 ? 'Session' : 'Sessions'} diese Woche`
+}
+
+function detectTrainerOverviewIntent(message: string): 'week' | 'today' | 'tomorrow' | null {
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('heute')) {
+    return 'today'
+  }
+
+  if (normalized.includes('morgen')) {
+    return 'tomorrow'
+  }
+
+  const overviewKeywords = ['woche', 'termine', 'was habe ich', 'übersicht', 'plan']
+  return overviewKeywords.some((keyword) => normalized.includes(keyword)) ? 'week' : null
 }
 
 export async function runAgentTrainer(message: string, from: string): Promise<string> {
@@ -64,6 +185,11 @@ export async function runAgentTrainer(message: string, from: string): Promise<st
       status: true,
     },
   })
+
+  const overviewIntent = detectTrainerOverviewIntent(message)
+  if (overviewIntent) {
+    return formatBookingsForWhatsApp(upcomingBookings, overviewIntent, now)
+  }
 
   const systemPrompt = `Du bist der digitale Assistent von Coach ${config.name}. Du kommunizierst DIREKT mit dem Trainer.
 
