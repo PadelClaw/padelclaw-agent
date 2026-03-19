@@ -1,11 +1,12 @@
 'use client'
 
 import type { FormEvent, HTMLAttributes } from 'react'
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 type LanguageCode = 'de' | 'en' | 'es'
 type AvailabilityKey = 'weekdays' | 'saturday'
+type PlanCode = 'free' | 'basic' | 'pro'
 
 type AvailabilityState = Record<
   AvailabilityKey,
@@ -49,11 +50,31 @@ const initialAvailability: AvailabilityState = {
   },
 }
 
+const allowedPlans: PlanCode[] = ['free', 'basic', 'pro']
+
+function parsePlan(value: string | null): PlanCode {
+  return allowedPlans.includes(value as PlanCode) ? (value as PlanCode) : 'free'
+}
+
+function formatPlanLabel(plan: PlanCode) {
+  return plan.charAt(0).toUpperCase() + plan.slice(1)
+}
+
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<OnboardingSkeleton />}>
+      <OnboardingContent />
+    </Suspense>
+  )
+}
+
+function OnboardingContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [plan, setPlan] = useState<PlanCode>('free')
 
   const [name, setName] = useState('')
   const [clubName, setClubName] = useState('')
@@ -69,6 +90,17 @@ export default function OnboardingPage() {
   const [whatsAppNumber, setWhatsAppNumber] = useState('')
 
   const currentStepLabel = useMemo(() => `Schritt ${step} von 3`, [step])
+  const selectedPlanLabel = useMemo(() => formatPlanLabel(plan), [plan])
+
+  useEffect(() => {
+    const queryPlan = parsePlan(searchParams.get('plan'))
+    const storedPlan =
+      typeof window !== 'undefined' ? parsePlan(window.localStorage.getItem('padelclaw-plan')) : 'free'
+    const resolvedPlan = searchParams.get('plan') ? queryPlan : storedPlan
+
+    setPlan(resolvedPlan)
+    window.localStorage.setItem('padelclaw-plan', resolvedPlan)
+  }, [searchParams])
 
   function updateAvailability(key: AvailabilityKey, patch: Partial<AvailabilityState[AvailabilityKey]>) {
     setAvailability((current) => ({
@@ -150,6 +182,7 @@ export default function OnboardingPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          plan,
           name,
           clubName,
           location,
@@ -197,6 +230,9 @@ export default function OnboardingPage() {
           </div>
 
           <div className="mt-6">
+            <div className="inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-green-700">
+              Plan: {selectedPlanLabel}
+            </div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-700">
               Self-Service Onboarding
             </p>
@@ -401,6 +437,19 @@ export default function OnboardingPage() {
             </div>
           </form>
         </div>
+      </div>
+    </main>
+  )
+}
+
+function OnboardingSkeleton() {
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-100 px-4 py-8 text-slate-900">
+      <div className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-[0_20px_80px_-40px_rgba(22,163,74,0.45)] ring-1 ring-green-100">
+        <div className="h-2 rounded-full bg-green-100" />
+        <div className="mt-6 h-6 w-28 rounded-full bg-green-100" />
+        <div className="mt-4 h-10 w-3/4 rounded-2xl bg-slate-100" />
+        <div className="mt-3 h-4 w-full rounded-xl bg-slate-100" />
       </div>
     </main>
   )

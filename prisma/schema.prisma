@@ -20,6 +20,7 @@ model MessageLog {
 
 model TrainerConfig {
   id               Int      @id @default(autoincrement())
+  plan             String   @default("free")
   name             String
   clubName         String
   trainerPhone     String?

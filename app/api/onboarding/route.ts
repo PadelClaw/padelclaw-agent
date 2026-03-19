@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 export const runtime = 'nodejs'
 
 const languageOptions = new Set(['de', 'en', 'es'])
+const planOptions = new Set(['free', 'basic', 'pro'])
 
 type AvailabilityInput = Record<
   string,
@@ -18,6 +19,7 @@ type AvailabilityInput = Record<
 >
 
 type OnboardingPayload = {
+  plan?: unknown
   name?: unknown
   clubName?: unknown
   location?: unknown
@@ -86,16 +88,16 @@ function validateAvailability(input: unknown) {
   return normalized
 }
 
-function buildWelcomeMessage(name: string, agentNumber: string, language: string) {
-  if (language === 'en') {
-    return `Hi ${name}, your PadelClaw trainer agent is ready. Your agent WhatsApp number is ${agentNumber}. Save it and start testing right away.`
+function buildWelcomeMessage(name: string, plan: string) {
+  if (plan === 'basic') {
+    return `Hallo ${name}! 🎾 Dein Basic Agent mit Kalender-Bild ist bereit.`
   }
 
-  if (language === 'es') {
-    return `Hola ${name}, tu agente de PadelClaw ya está listo. El número de WhatsApp de tu agente es ${agentNumber}. Guárdalo y empieza a probarlo ahora.`
+  if (plan === 'pro') {
+    return `Hallo ${name}! 🏆 Dein Pro Agent mit voller Ausstattung ist bereit.`
   }
 
-  return `Hi ${name}, dein PadelClaw Trainer-Agent ist bereit. Die WhatsApp-Nummer deines Agents ist ${agentNumber}. Speichere sie direkt und teste los.`
+  return `Hallo ${name}! 👋 Dein kostenloser PadelClaw Agent ist bereit.`
 }
 
 export async function POST(req: NextRequest) {
@@ -108,6 +110,7 @@ export async function POST(req: NextRequest) {
   }
 
   const name = asCleanString(payload.name)
+  const plan = asCleanString(payload.plan) || 'free'
   const clubName = asCleanString(payload.clubName)
   const location = asCleanString(payload.location)
   const language = asCleanString(payload.language)
@@ -128,6 +131,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ungültige Sprache.' }, { status: 400 })
   }
 
+  if (!planOptions.has(plan)) {
+    return NextResponse.json({ error: 'Ungültiger Plan.' }, { status: 400 })
+  }
+
   if (!priceSingle || !pricePackage5 || !pricePackage10) {
     return NextResponse.json({ error: 'Bitte gib gültige Preise an.' }, { status: 400 })
   }
@@ -140,11 +147,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Bitte gib eine gültige WhatsApp-Nummer an.' }, { status: 400 })
   }
 
-  const agentNumber = '+1 555 186 3357'
-
   try {
     const createdTrainer = await prisma.trainerConfig.create({
       data: {
+        plan,
         name,
         clubName,
         location,
@@ -161,7 +167,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendWhatsApp(
         trainerPhone,
-        buildWelcomeMessage(name, agentNumber, language),
+        buildWelcomeMessage(name, plan),
       )
     } catch (sendError) {
       await prisma.trainerConfig.delete({ where: { id: createdTrainer.id } })
