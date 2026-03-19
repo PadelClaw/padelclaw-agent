@@ -15,12 +15,13 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'check_slots',
-      description: 'Zeigt verfügbare Trainingslots. Nutze dies wenn der Spieler Termine sehen oder buchen möchte.',
+      description: 'Zeigt verfügbare Trainingslots. Nutze dies wenn der Spieler Termine sehen oder buchen möchte. Wenn der Spieler ein bestimmtes Datum nennt (z.B. "Mittwoch 25.03."), übergib es als date_preference.',
       parameters: {
         type: 'object',
         properties: {
           date: { type: 'string', description: 'Datum z.B. morgen, Freitag, 2026-03-20' },
           time_preference: { type: 'string', enum: ['vormittag','nachmittag','abend','any'] },
+          date_preference: { type: 'string', description: 'ISO-Datum wenn Spieler ein bestimmtes Datum will, z.B. 2026-03-25' },
         },
       },
     },
@@ -75,7 +76,8 @@ export async function executeTool(name: string, args: Record<string, string>): P
   if (name === 'check_slots') {
     if (!isGoogleCalendarEnabled()) return JSON.stringify([{ label: 'Mo, 20.03., 10:00 Uhr', start: new Date().toISOString() }])
     const pref = (args.time_preference ?? 'any') as PreferredTime
-    const slots = await getNextAvailableSlotOptions(config.calendarId, pref)
+    const startDate = args.date_preference ? new Date(args.date_preference) : new Date()
+    const slots = await getNextAvailableSlotOptions(config.calendarId, pref, startDate)
     return JSON.stringify(slots.slice(0, 5))
   }
 
