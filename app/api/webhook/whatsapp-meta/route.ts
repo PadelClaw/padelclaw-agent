@@ -4,6 +4,7 @@ import { runAgentTrainer } from '@/lib/agent/runner-trainer'
 import { prisma } from '@/lib/prisma'
 import { isTrainerPhone } from '@/lib/db/trainer-config'
 import { sendWhatsApp } from '@/lib/whatsapp-meta'
+import { transcribeAudio } from '@/lib/whatsapp-media'
 
 export const runtime = 'nodejs'
 
@@ -13,6 +14,10 @@ type MetaWebhookPayload = {
       value?: {
         messages?: Array<{
           from?: string
+          type?: string
+          audio?: {
+            id?: string
+          }
           text?: {
             body?: string
           }
@@ -46,7 +51,22 @@ export async function POST(req: NextRequest) {
   const payload = (await req.json()) as MetaWebhookPayload
   const message = payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
   const from = message?.from?.trim() ?? ''
-  const messageBody = message?.text?.body?.trim() ?? ''
+  let messageBody = message?.text?.body?.trim() ?? ''
+
+  if (message?.type === 'audio') {
+    const mediaId = message.audio?.id?.trim()
+
+    if (mediaId) {
+      try {
+        messageBody = (await transcribeAudio(mediaId)).trim()
+      } catch (err) {
+        console.error('Meta audio transcription failed:', err)
+        messageBody = '[Sprachnachricht konnte nicht transkribiert werden]'
+      }
+    } else {
+      messageBody = '[Sprachnachricht konnte nicht transkribiert werden]'
+    }
+  }
 
   if (from && messageBody) {
     processMessage(from, messageBody).catch((err) =>
