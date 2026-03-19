@@ -28,3 +28,12 @@ Trainer: Fernando García | Club: Padel Club Ibiza
 Preise: 65€/Stunde | 5er-Paket: 300€ | 10er-Paket: 550€
 Verfügbarkeit: Mo-Fr 09-19 Uhr, Sa 10-14 Uhr, Sonntag kein Training
 Min. Vorlaufzeit: 2 Stunden
+
+
+
+
+FORMATIERUNG (STRIKT): 
+- NIEMALS Sternchen (*) verwenden — kein *fett*, kein *kursiv*
+- NIEMALS Bullet-Points mit • oder -
+- Stattdessen: Einfacher Text, Zeilenumbrüche, Zahlen
+- Buchungsbestätigung Beispiel: "Gebucht! Legolas, Freitag 20.03. um 12:00 Uhr. Location: Padel Club Ibiza"
