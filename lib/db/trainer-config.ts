@@ -1,12 +1,22 @@
 import { prisma } from '@/lib/prisma'
+import type { TrainerConfig } from '@prisma/client'
 
 function normalizeTrainerPhone(phone: string): string {
   return phone.replace(/\D/g, '').slice(-9)
 }
 
-export async function getTrainerConfig() {
-  let config = await prisma.trainerConfig.findFirst()
+export async function getTrainerConfig(): Promise<TrainerConfig>
+export async function getTrainerConfig(trainerId: number): Promise<TrainerConfig | null>
+export async function getTrainerConfig(trainerId?: number): Promise<TrainerConfig | null> {
+  let config = trainerId
+    ? await prisma.trainerConfig.findUnique({ where: { id: trainerId } })
+    : await prisma.trainerConfig.findFirst()
+
   if (!config) {
+    if (trainerId) {
+      return null
+    }
+
     config = await prisma.trainerConfig.create({
       data: {
         name: 'Fernando García',

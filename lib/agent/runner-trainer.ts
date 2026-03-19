@@ -1,31 +1,23 @@
 import { ollamaClient, AGENT_MODEL } from './ollama'
 import { toolDefinitions, executeTool } from './tools'
-import { prisma } from '@/lib/prisma'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
+import { generateWeekImage } from '@/lib/calendar/generate-image'
+import {
+  addDays,
+  getDateKey,
+  getIsoWeek,
+  getUpcomingTrainerBookings,
+  parseBookingDate,
+  startOfDay,
+  type TrainerScheduleBooking,
+} from '@/lib/calendar/schedule'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
-type TrainerBooking = {
-  playerName: string
-  playerPhone: string
-  slotStart: string
-  slotEnd: string
-  status: string
-}
-
 const WEEKDAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
-const DAY_MS = 24 * 60 * 60 * 1000
 
-function startOfDay(date: Date): Date {
-  const result = new Date(date)
-  result.setHours(0, 0, 0, 0)
-  return result
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
-  return result
-}
+export type TrainerAgentResponse =
+  | { type: 'text'; body: string }
+  | { type: 'image'; imageBase64: string; caption?: string }
 
 function formatDateLabel(date: Date): string {
   const dayLabel = WEEKDAY_LABELS[date.getDay()]
@@ -43,38 +35,22 @@ function formatTime(date: Date): string {
   }).format(date)
 }
 
-function getDateKey(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getIsoWeek(date: Date): number {
-  const target = new Date(date)
-  target.setHours(0, 0, 0, 0)
-  target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7))
-  const firstThursday = new Date(target.getFullYear(), 0, 4)
-  firstThursday.setDate(firstThursday.getDate() + 3 - ((firstThursday.getDay() + 6) % 7))
-  return 1 + Math.round((target.getTime() - firstThursday.getTime()) / (7 * DAY_MS))
-}
-
-function formatUpcomingBookings(bookings: TrainerBooking[]): string {
+function formatUpcomingBookings(bookings: TrainerScheduleBooking[]): string {
   if (!bookings.length) {
     return '- Keine bestätigten Buchungen in den nächsten 7 Tagen.'
   }
 
   return bookings
     .map((booking) => {
-      const start = new Date(booking.slotStart)
-      const end = new Date(booking.slotEnd)
+      const start = parseBookingDate(booking.slotStart)
+      const end = parseBookingDate(booking.slotEnd)
       return `- ${formatDateLabel(start)} ${formatTime(start)}-${formatTime(end)}: ${booking.playerName} (${booking.playerPhone})`
     })
     .join('\n')
 }
 
 function formatBookingsForWhatsApp(
-  bookings: TrainerBooking[],
+  bookings: TrainerScheduleBooking[],
   variant: 'week' | 'today' | 'tomorrow',
   now: Date = new Date(),
 ): string {
@@ -84,8 +60,8 @@ function formatBookingsForWhatsApp(
     const targetDate = variant === 'today' ? today : addDays(today, 1)
     const targetKey = getDateKey(targetDate)
     const dayBookings = bookings
-      .filter((booking) => getDateKey(new Date(booking.slotStart)) === targetKey)
-      .sort((a, b) => new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime())
+      .filter((booking) => getDateKey(parseBookingDate(booking.slotStart)) === targetKey)
+      .sort((a, b) => parseBookingDate(a.slotStart).getTime() - parseBookingDate(b.slotStart).getTime())
 
     const title = variant === 'today' ? '📅 Dein Tag heute' : '📅 Dein Tag morgen'
     const header = dayBookings.length ? `${formatDateLabel(targetDate)} 🟢` : `${formatDateLabel(targetDate)} ⚪ frei`
@@ -94,16 +70,16 @@ function formatBookingsForWhatsApp(
       return `${title}\n\n${header}\n\nGesamt: 0 Sessions`
     }
 
-    const lines = dayBookings.map((booking) => `• ${formatTime(new Date(booking.slotStart))} ${booking.playerName}`)
+    const lines = dayBookings.map((booking) => `• ${formatTime(parseBookingDate(booking.slotStart))} ${booking.playerName}`)
     return `${title}\n\n${header}\n${lines.join('\n')}\n\nGesamt: ${dayBookings.length} ${dayBookings.length === 1 ? 'Session' : 'Sessions'}`
   }
 
   const weekStart = addDays(today, -(today.getDay() === 0 ? 6 : today.getDay() - 1))
   const allDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
-  const bookingsByDay = new Map<string, TrainerBooking[]>()
+  const bookingsByDay = new Map<string, TrainerScheduleBooking[]>()
 
   for (const booking of bookings) {
-    const key = getDateKey(new Date(booking.slotStart))
+    const key = getDateKey(parseBookingDate(booking.slotStart))
     const existing = bookingsByDay.get(key) ?? []
     existing.push(booking)
     bookingsByDay.set(key, existing)
@@ -116,7 +92,7 @@ function formatBookingsForWhatsApp(
 
   const sections = visibleDays.map((day) => {
     const dayBookings = (bookingsByDay.get(getDateKey(day)) ?? []).sort(
-      (a, b) => new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime(),
+      (a, b) => parseBookingDate(a.slotStart).getTime() - parseBookingDate(b.slotStart).getTime(),
     )
 
     if (!dayBookings.length) {
@@ -125,7 +101,7 @@ function formatBookingsForWhatsApp(
 
     const grouped = new Map<string, { time: string; playerName: string; count: number }>()
     for (const booking of dayBookings) {
-      const time = formatTime(new Date(booking.slotStart))
+      const time = formatTime(parseBookingDate(booking.slotStart))
       const key = `${time}|${booking.playerName}`
       const current = grouped.get(key)
       if (current) {
@@ -161,34 +137,49 @@ function detectTrainerOverviewIntent(message: string): 'week' | 'today' | 'tomor
   return overviewKeywords.some((keyword) => normalized.includes(keyword)) ? 'week' : null
 }
 
-export async function runAgentTrainer(message: string, from: string): Promise<string> {
-  const config = await getTrainerConfig()
-  const now = new Date()
-  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+function wantsCalendarImage(message: string): boolean {
+  const normalized = message.toLowerCase()
+  const keywords = ['bild', 'foto', 'image', 'png', 'grafik']
+  return keywords.some((keyword) => normalized.includes(keyword))
+}
 
-  const upcomingBookings = await prisma.booking.findMany({
-    where: {
-      status: 'confirmed',
-      slotStart: {
-        gte: now.toISOString(),
-        lte: nextWeek.toISOString(),
-      },
-    },
-    orderBy: {
-      slotStart: 'asc',
-    },
-    select: {
-      playerName: true,
-      playerPhone: true,
-      slotStart: true,
-      slotEnd: true,
-      status: true,
-    },
-  })
+function wantsCalendarLink(message: string): boolean {
+  const normalized = message.toLowerCase()
+  const keywords = ['ical', 'kalender link', 'importieren', 'subscribe']
+  return keywords.some((keyword) => normalized.includes(keyword))
+}
+
+export async function runAgentTrainer(message: string, from: string): Promise<TrainerAgentResponse> {
+  const config = await getTrainerConfig()
+  if (!config) {
+    return { type: 'text', body: 'Trainer-Konfiguration nicht gefunden.' }
+  }
+
+  const now = new Date()
+  const upcomingBookings = await getUpcomingTrainerBookings(now)
+
+  if (wantsCalendarImage(message)) {
+    const imageBuffer = await generateWeekImage(String(config.id))
+    return {
+      type: 'image',
+      imageBase64: imageBuffer.toString('base64'),
+      caption: `KW ${String(getIsoWeek(now)).padStart(2, '0')} — ${config.name}`,
+    }
+  }
+
+  if (wantsCalendarLink(message)) {
+    return {
+      type: 'text',
+      body:
+        `Hier ist dein Kalender-Link zum Importieren:\n` +
+        `https://meniscoid-lena-superofficiously.ngrok-free.dev/api/calendar/${config.id}.ics\n\n` +
+        `Einfach in Apple Calendar, Google Calendar oder Outlook importieren!`,
+    }
+  }
 
   const overviewIntent = detectTrainerOverviewIntent(message)
   if (overviewIntent) {
-    return formatBookingsForWhatsApp(upcomingBookings, overviewIntent, now)
+    return { type: 'text', body: formatBookingsForWhatsApp(upcomingBookings, overviewIntent, now) }
   }
 
   const systemPrompt = `Du bist der digitale Assistent von Coach ${config.name}. Du kommunizierst DIREKT mit dem Trainer.
@@ -246,8 +237,11 @@ ${formatUpcomingBookings(upcomingBookings)}
 
     const msg = choice.message as { content?: string | null; reasoning?: string }
     const text = msg.content || msg.reasoning || ''
-    return text.trim() || 'Entschuldigung, bitte versuche es nochmal.'
+    return {
+      type: 'text',
+      body: text.trim() || 'Entschuldigung, bitte versuche es nochmal.',
+    }
   }
 
-  return 'Entschuldigung, ich konnte deine Anfrage nicht verarbeiten.'
+  return { type: 'text', body: 'Entschuldigung, ich konnte deine Anfrage nicht verarbeiten.' }
 }

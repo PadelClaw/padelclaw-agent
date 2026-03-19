@@ -65,7 +65,7 @@ export async function transcribeAudio(mediaId: string): Promise<string> {
     fs.writeFileSync(audioPath, audioBuffer)
 
     execSync(
-      `${whisperBinary} ${audioPath} --model turbo --output_format txt --output_dir /tmp`,
+      `${whisperBinary} ${audioPath} --model base --output_format txt --output_dir /tmp`,
       {
         stdio: 'pipe',
       },

@@ -3,7 +3,7 @@ import { runAgent } from '@/lib/agent/runner'
 import { runAgentTrainer } from '@/lib/agent/runner-trainer'
 import { prisma } from '@/lib/prisma'
 import { isTrainerPhone } from '@/lib/db/trainer-config'
-import { sendWhatsApp } from '@/lib/whatsapp-meta'
+import { sendWhatsApp, sendWhatsAppImage } from '@/lib/whatsapp-meta'
 import { transcribeAudio } from '@/lib/whatsapp-media'
 
 export const runtime = 'nodejs'
@@ -79,27 +79,42 @@ export async function POST(req: NextRequest) {
 
 async function processMessage(from: string, messageBody: string) {
   const start = Date.now()
-  let response: string
+  let responseText: string
 
   try {
     const trainerMode = await isTrainerPhone(from)
-    response = trainerMode
-      ? await runAgentTrainer(messageBody, from)
-      : await runAgent(messageBody, from)
+    if (trainerMode) {
+      const response = await runAgentTrainer(messageBody, from)
+      responseText =
+        response.type === 'text'
+          ? response.body
+          : response.caption ?? '[Kalenderbild gesendet]'
+
+      if (response.type === 'image') {
+        await sendWhatsAppImage(
+          from,
+          Buffer.from(response.imageBase64, 'base64'),
+          response.caption,
+        )
+      } else {
+        await sendWhatsApp(from, response.body)
+      }
+    } else {
+      responseText = await runAgent(messageBody, from)
+      await sendWhatsApp(from, responseText)
+    }
   } catch (err) {
     console.error('Agent error:', err)
-    response = 'Entschuldigung, bitte versuche es nochmal.'
+    responseText = 'Entschuldigung, bitte versuche es nochmal.'
+    await sendWhatsApp(from, responseText)
   }
 
   const durationMs = Date.now() - start
 
-  await Promise.all([
-    prisma.messageLog.createMany({
-      data: [
-        { from, body: messageBody, role: 'user', durationMs: 0 },
-        { from, body: response, role: 'assistant', durationMs },
-      ],
-    }),
-    sendWhatsApp(from, response),
-  ])
+  await prisma.messageLog.createMany({
+    data: [
+      { from, body: messageBody, role: 'user', durationMs: 0 },
+      { from, body: responseText, role: 'assistant', durationMs },
+    ],
+  })
 }
