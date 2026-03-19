@@ -30,9 +30,16 @@ export function addDays(date: Date, days: number): Date {
   return result
 }
 
-export function getUpcomingDays(now: Date = new Date()): Date[] {
+export function getUpcomingDays(now: Date = new Date(), bookings: { slotStart: string }[] = []): Date[] {
   const firstDay = startOfDay(now)
-  return Array.from({ length: DAY_COUNT }, (_, index) => addDays(firstDay, index))
+  const allDays = Array.from({ length: DAY_COUNT }, (_, index) => addDays(firstDay, index))
+  // Wochenende nur anzeigen wenn Buchungen vorhanden
+  const bookedDates = new Set(bookings.map(b => getDateKey(new Date(b.slotStart))))
+  return allDays.filter(day => {
+    const dow = day.getDay() // 0=So, 6=Sa
+    const isWeekend = dow === 0 || dow === 6
+    return !isWeekend || bookedDates.has(getDateKey(day))
+  })
 }
 
 export function getIsoWeek(date: Date): number {

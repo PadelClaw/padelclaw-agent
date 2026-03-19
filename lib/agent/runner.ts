@@ -17,6 +17,7 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
   const now = new Date()
   const player = await getOrCreatePlayer(from)
   const playerContext = player.name
+  const phoneContext = `\n\nDie WhatsApp-Nummer des Spielers ist: ${from}. Nutze diese als player_phone beim Buchen — frage NICHT danach.`
     ? `\n\nDer Spieler heißt: ${player.name}. Verwende diesen Namen und frage nicht erneut danach.`
     : ''
 
@@ -29,7 +30,7 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
 - Aktuelles Datum/Zeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
 
 Nutze Tools NUR für: Slots anzeigen (check_slots), Buchung erstellen (create_booking), Buchung stornieren (cancel_booking).
-Preise und Verfügbarkeitsinfos kannst du direkt aus obigen Daten beantworten.${playerContext}`
+Preise und Verfügbarkeitsinfos kannst du direkt aus obigen Daten beantworten.${playerContext}${phoneContext}`
 
   const history = await getHistory(from, 20)
 

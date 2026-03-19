@@ -37,7 +37,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
           player_name: { type: 'string' },
           player_phone: { type: 'string' },
         },
-        required: ['slot_start', 'player_name', 'player_phone'],
+        required: ['slot_start', 'player_name'],
       },
     },
   },
@@ -81,6 +81,18 @@ export async function executeTool(name: string, args: Record<string, string>): P
 
   if (name === 'create_booking') {
     const slotEnd = new Date(new Date(args.slot_start).getTime() + 3600000).toISOString()
+    
+    // Prüfe Doppelbuchung
+    const conflict = await prisma.booking.findFirst({
+      where: { slotStart: args.slot_start, status: 'confirmed' }
+    })
+    if (conflict) {
+      const date = new Date(args.slot_start)
+      const dateLabel = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(date)
+      const timeLabel = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date)
+      return JSON.stringify({ error: 'slot_taken', dateLabel, timeLabel })
+    }
+    
     let eventId: string | null = null
     if (isGoogleCalendarEnabled()) {
       eventId = await createCalendarEvent({

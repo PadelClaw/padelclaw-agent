@@ -109,7 +109,7 @@ export async function generateWeekImage(trainerId: string): Promise<Buffer> {
   }
 
   const now = new Date()
-  const days = getUpcomingDays(now)
+  const days = getUpcomingDays(now, bookings)
   const bookings = await getUpcomingTrainerBookings(now)
   const bookingsByDay = new Map<string, typeof bookings>()
 
