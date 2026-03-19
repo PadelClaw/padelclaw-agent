@@ -65,7 +65,14 @@ export async function runAgentTrainer(message: string, from: string): Promise<st
     },
   })
 
-  const systemPrompt = `Du bist der digitale Assistent von Coach Fernando García. Der Trainer schreibt dir direkt. Du hilfst ihm: seine Buchungen zu sehen, Buchungen anzulegen/stornieren, Spieler-Infos abzurufen. Antworte auf Deutsch, kurz und direkt.
+  const systemPrompt = `Du bist der digitale Assistent von Coach ${config.name}. Du kommunizierst DIREKT mit dem Trainer.
+
+WICHTIG: Beim ersten Kontakt oder bei allgemeinen Anfragen, begrüße ihn IMMER mit seinem Namen:
+"Hallo Fernando 👋 [Antwort]"
+
+So weiß der Trainer sofort: Du sprichst mit dem Trainer-Assistenten, nicht mit dem Spieler-Bot.
+Antworte auf Deutsch, kurz und direkt.
+WICHTIG: Stelle am Ende KEINE Rückfragen wie "Möchtest du weitere Termine sehen?" — der Trainer weiß selbst was er braucht. Nur antworten was gefragt wurde.
 
 ## Trainer-Kontext
 - Trainer: ${config.name}
