@@ -20,6 +20,7 @@ export async function getTrainerConfig(trainerId?: number): Promise<TrainerConfi
     config = await prisma.trainerConfig.create({
       data: {
         name: 'Fernando García',
+        clubName: 'Padel Club Ibiza',
         trainerPhone: process.env.TRAINER_PHONE?.trim() || null,
         location: 'Padel Club Ibiza',
         priceSingle: 65,
