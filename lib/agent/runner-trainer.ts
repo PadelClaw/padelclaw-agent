@@ -1,4 +1,4 @@
-import { toAnthropicTools, runWithTools } from './anthropic'
+import { ollamaClient, AGENT_MODEL } from './ollama'
 import { toolDefinitions, executeTool } from './tools'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
 import { generateWeekImage } from '@/lib/calendar/generate-image'
@@ -11,6 +11,7 @@ import {
   startOfDay,
   type TrainerScheduleBooking,
 } from '@/lib/calendar/schedule'
+import type { ChatCompletionMessageParam } from 'openai/resources'
 
 const WEEKDAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
 
@@ -208,17 +209,39 @@ ${formatUpcomingBookings(upcomingBookings)}
 - Wenn die Antwort schon direkt aus dem Kontext möglich ist, antworte ohne Tool-Call.
 - Keine Konversationshistorie verwenden. Behandle jede Nachricht eigenständig.`
 
-  const tools = toAnthropicTools(toolDefinitions)
+  const messages: ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: message },
+  ]
 
-  const result = await runWithTools({
-    system: systemPrompt,
-    messages: [{ role: 'user', content: message }],
-    tools,
-    executeTool,
-  })
+  for (let i = 0; i < 5; i++) {
+    const response = await ollamaClient.chat.completions.create({
+      model: AGENT_MODEL,
+      messages,
+      tools: toolDefinitions,
+      tool_choice: 'auto',
+    })
 
-  return {
-    type: 'text',
-    body: result || 'Entschuldigung, ich konnte deine Anfrage nicht verarbeiten.',
+    const choice = response.choices[0]
+    if (!choice) break
+
+    if (choice.finish_reason === 'tool_calls' && choice.message.tool_calls?.length) {
+      messages.push(choice.message)
+      for (const toolCall of choice.message.tool_calls) {
+        const args = JSON.parse(toolCall.function.arguments || '{}') as Record<string, string>
+        const result = await executeTool(toolCall.function.name, args)
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
+      }
+      continue
+    }
+
+    const msg = choice.message as { content?: string | null; reasoning?: string }
+    const text = msg.content || msg.reasoning || ''
+    return {
+      type: 'text',
+      body: text.trim() || 'Entschuldigung, bitte versuche es nochmal.',
+    }
   }
+
+  return { type: 'text', body: 'Entschuldigung, ich konnte deine Anfrage nicht verarbeiten.' }
 }
