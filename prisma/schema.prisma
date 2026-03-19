@@ -42,3 +42,12 @@ model Booking {
   status          String   @default("confirmed")
   @@index([playerPhone])
 }
+
+model Player {
+  id        Int      @id @default(autoincrement())
+  phone     String   @unique
+  name      String
+  language  String   @default("de")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

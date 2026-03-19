@@ -1,6 +1,7 @@
 import type { ChatCompletionTool } from 'openai/resources'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
 import { prisma } from '@/lib/prisma'
+import { getOrCreatePlayer } from './history'
 import {
   getNextAvailableSlotOptions,
   createCalendarEvent,
@@ -94,6 +95,7 @@ export async function executeTool(name: string, args: Record<string, string>): P
     await prisma.booking.create({
       data: { playerName: args.player_name, playerPhone: args.player_phone, slotStart: args.slot_start, slotEnd, calendarEventId: eventId, status: 'confirmed' }
     })
+    await getOrCreatePlayer(args.player_phone, args.player_name)
     const date = new Date(args.slot_start)
     const dateLabel = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
     const timeLabel = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date)
