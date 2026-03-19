@@ -1,6 +1,15 @@
 import { prisma } from '@/lib/prisma'
 
 export async function getHistory(from: string, limit = 10) {
+  const hasBooking = await prisma.booking.findFirst({
+    where: { playerPhone: from, status: 'confirmed' },
+    select: { id: true },
+  })
+
+  if (!hasBooking) {
+    return []
+  }
+
   const logs = await prisma.messageLog.findMany({
     where: {
       from,

@@ -1,6 +1,7 @@
 import { ollamaClient, AGENT_MODEL } from './ollama'
 import { toolDefinitions, executeTool } from './tools'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
+import { getTrainerMemory, upsertTrainerMemory } from '@/lib/db/trainer-memory'
 import { generateWeekImage } from '@/lib/calendar/generate-image'
 import {
   addDays,
@@ -53,6 +54,7 @@ function formatBookingsForWhatsApp(
   bookings: TrainerScheduleBooking[],
   variant: 'week' | 'today' | 'tomorrow',
   now: Date = new Date(),
+  location: string = 'Padel Club Ibiza',
 ): string {
   const today = startOfDay(now)
 
@@ -70,8 +72,8 @@ function formatBookingsForWhatsApp(
       return `${title}\n\n${header}\n\nGesamt: 0 Sessions`
     }
 
-    const lines = dayBookings.map((booking) => `• ${formatTime(parseBookingDate(booking.slotStart))} ${booking.playerName}`)
-    return `${title}\n\n${header}\n${lines.join('\n')}\n\nGesamt: ${dayBookings.length} ${dayBookings.length === 1 ? 'Session' : 'Sessions'}`
+    const lines = dayBookings.map((booking) => `• ${formatTime(parseBookingDate(booking.slotStart))}-${formatTime(parseBookingDate(booking.slotEnd) <= parseBookingDate(booking.slotStart) ? new Date(parseBookingDate(booking.slotStart).getTime() + 3600000) : parseBookingDate(booking.slotEnd))} ${booking.playerName}`)
+    return `${title}\n\n${header}\n${lines.join('\n')}\n📍 ${location}\n\nGesamt: ${dayBookings.length} ${dayBookings.length === 1 ? 'Session' : 'Sessions'}`
   }
 
   const weekStart = addDays(today, -(today.getDay() === 0 ? 6 : today.getDay() - 1))
@@ -112,7 +114,7 @@ function formatBookingsForWhatsApp(
     }
 
     const lines = Array.from(grouped.values()).map((entry) =>
-      entry.count > 1 ? `• ${entry.time} ${entry.playerName} (${entry.count} Sessions)` : `• ${entry.time} ${entry.playerName}`,
+      entry.count > 1 ? `• ${entry.time} ${entry.playerName} (${entry.count}h)` : `• ${entry.time} ${entry.playerName}`,
     )
 
     return `${formatDateLabel(day)} 🟢\n${lines.join('\n')}`
@@ -149,6 +151,27 @@ function wantsCalendarLink(message: string): boolean {
   return keywords.some((keyword) => normalized.includes(keyword))
 }
 
+async function analyzeTrainerFeedback(trainerId: number, message: string): Promise<void> {
+  const normalized = message.toLowerCase()
+  const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+
+  const complaintKeywords = ['zu forsch', 'nicht so', 'falsch', 'schlecht', 'nervig', 'zu viel']
+  const positiveKeywords = ['gut', 'perfekt', 'genau so', 'super', 'top', 'danke']
+
+  if (complaintKeywords.some((kw) => normalized.includes(kw))) {
+    await upsertTrainerMemory(trainerId, `complaint_${today}`, `Beschwerde ${today}: ${message.slice(0, 120)}`)
+  }
+
+  if (positiveKeywords.some((kw) => normalized.includes(kw))) {
+    await upsertTrainerMemory(trainerId, `positive_${today}`, `Positiv ${today}: ${message.slice(0, 120)}`)
+  }
+
+  const spanishStarters = ['hola', 'buenos', 'buenas', 'oye', 'dime']
+  if (spanishStarters.some((kw) => normalized.startsWith(kw))) {
+    await upsertTrainerMemory(trainerId, 'language_preference', 'Beginnt Konversation manchmal auf Spanisch')
+  }
+}
+
 export async function runAgentTrainer(message: string, from: string): Promise<TrainerAgentResponse> {
   const config = await getTrainerConfig()
   if (!config) {
@@ -182,12 +205,16 @@ export async function runAgentTrainer(message: string, from: string): Promise<Tr
     return { type: 'text', body: formatBookingsForWhatsApp(upcomingBookings, overviewIntent, now) }
   }
 
+  const trainerMemory = await getTrainerMemory(config.id)
+
+  const memorySection = trainerMemory
+    ? `\n\n## Was ich über ${config.name} weiß\n${trainerMemory}`
+    : ''
+
   const systemPrompt = `Du bist der digitale Assistent von Coach ${config.name}. Du kommunizierst DIREKT mit dem Trainer.
 
-WICHTIG: Beim ersten Kontakt oder bei allgemeinen Anfragen, begrüße ihn IMMER mit seinem Namen:
-"Hallo Fernando 👋 [Antwort]"
-
-So weiß der Trainer sofort: Du sprichst mit dem Trainer-Assistenten, nicht mit dem Spieler-Bot.
+Beim ALLERERSTEN Kontakt des Tages (wenn keine History vorhanden): Begrüße mit 'Hallo Fernando 👋'
+Danach: Kein 'Hallo' mehr — direkt zur Antwort. Natürliche Konversation wie mit einem Kollegen.
 Antworte auf Deutsch, kurz und direkt.
 WICHTIG: Stelle am Ende KEINE Rückfragen wie "Möchtest du weitere Termine sehen?" — der Trainer weiß selbst was er braucht. Nur antworten was gefragt wurde.
 
@@ -199,7 +226,7 @@ WICHTIG: Stelle am Ende KEINE Rückfragen wie "Möchtest du weitere Termine sehe
 - Aktuelles Datum/Zeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
 
 ## Buchungen der nächsten 7 Tage
-${formatUpcomingBookings(upcomingBookings)}
+${formatUpcomingBookings(upcomingBookings)}${memorySection}
 
 ## Tool-Regeln
 - Nutze dieselben Tools wie gewohnt: check_slots, create_booking, cancel_booking.
@@ -208,6 +235,9 @@ ${formatUpcomingBookings(upcomingBookings)}
 - Nutze cancel_booking nur mit der Telefonnummer des Spielers.
 - Wenn die Antwort schon direkt aus dem Kontext möglich ist, antworte ohne Tool-Call.
 - Keine Konversationshistorie verwenden. Behandle jede Nachricht eigenständig.`
+
+  // Analyze trainer message for feedback/preferences (fire-and-forget)
+  analyzeTrainerFeedback(config.id, message).catch(() => {})
 
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },

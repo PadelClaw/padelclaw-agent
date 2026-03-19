@@ -6,4 +6,4 @@ export const ollamaClient = new OpenAI({
 })
 
 // Wechsel zu claude-haiku via Ollama Cloud wenn verfügbar
-export const AGENT_MODEL = process.env.AGENT_MODEL ?? 'qwen3-next:80b'
+export const AGENT_MODEL = process.env.AGENT_MODEL ?? 'minimax-m2.7'
