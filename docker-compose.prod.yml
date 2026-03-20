@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - intern
+
+  padelclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "3005"
+    command: >
+      sh -c "npx prisma generate --schema prisma/schema.postgres.prisma &&
+      npx prisma db push --schema prisma/schema.postgres.prisma &&
+      npm run start"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3005/api/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - intern
+      - extern
+
+  caddy:
+    image: caddy:2
+    restart: always
+    depends_on:
+      padelclaw:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - extern
+
+  backup:
+    image: postgres:16
+    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /backups
+        while true; do
+          timestamp=$$(date +%F-%H%M%S)
+          pg_dump -h postgres -U "$$POSTGRES_USER" "$$POSTGRES_DB" > "/backups/padelclaw-$$timestamp.sql"
+          find /backups -type f -mtime +7 -delete
+          sleep 86400
+        done
+    networks:
+      - intern
+
+networks:
+  intern:
+    driver: bridge
+    internal: true
+  extern:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

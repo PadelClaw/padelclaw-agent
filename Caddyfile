@@ -1,0 +1,13 @@
+padelclaw.ai {
+  encode zstd gzip
+
+  @health path /healthz
+  handle @health {
+    rewrite * /api/health
+    reverse_proxy padelclaw:3005
+  }
+
+  handle {
+    reverse_proxy padelclaw:3005
+  }
+}
