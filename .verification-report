@@ -1,0 +1,9 @@
+=== VERIFICATION ===
+c86d909 feat: hetzner vps setup (docker compose + caddy + github actions)
+.github/workflows/deploy.yml
+Caddyfile
+app/api/health/route.ts
+docker-compose.prod.yml
+docs/vps-setup.md
+scripts/setup-vps.sh
+=== END ===

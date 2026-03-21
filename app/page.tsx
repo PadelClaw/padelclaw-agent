@@ -64,33 +64,48 @@ const reminderMessages = [
     tone: 'agent',
     text: 'Alles bestätigt ✅',
   },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '🏟️ Courts gebucht:',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Club Hannover — Court 2 ✅',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Padel Werk — Court 1 ✅',
+  },
 ] as const
 
 const exportMessages = [
   {
     align: 'left',
     tone: 'trainer',
-    text: 'Kannst du mir meine Woche als Excel schicken? 📊\nDi 18:00–19:00 Fernando (Club Hannover), Mi 19:30–20:30 Maria (Padel Werk), Fr 21:00–22:00 Luis (Racket Arena)',
+    text: 'Kannst du meine Woche\nals Excel schicken? 📊',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Klar! Ich erstelle dir die Übersicht...\nIch nehme alle Slots mit Club-Namen, Zeiten und Spielern rein.',
+    text: 'Klar!\nErstelle die Übersicht...',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: '📎 Kalenderwoche_KW13.xlsx\nMit Einträgen wie Di 18:00–19:00 Fernando (Club Hannover) und Do 17:00–18:00 Sofia (Padel Werk)',
+    text: '📎\nKalenderwoche_KW13.xlsx',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo–Fr, 8 Buchungen, 3 Clubs ✅\nDi 18:00–19:00 Fernando (Club Hannover)\nMi 19:30–20:30 Maria (Padel Werk)\nFr 21:00–22:00 Luis (Racket Arena)',
+    text: 'Di–Fr, 8 Buchungen,\n3 Clubs ✅',
   },
   {
     align: 'left',
     tone: 'trainer',
-    text: '👌 Danke!\nPerfekt, so sehe ich Zeiten, Spieler und Clubs direkt.',
+    text: '👌 Perfekt,\ndanke!',
   },
 ] as const
 
@@ -126,11 +141,14 @@ function AnimatedPhoneMockup() {
       setSequence('reminder')
       setVisibleMessages(0)
 
-      reminderMessages.forEach((_, index) => {
-        schedule(() => setVisibleMessages(index + 1), 450 + index * 900)
-      })
+      schedule(() => setVisibleMessages(1), 450)
+      schedule(() => setVisibleMessages(2), 1350)
+      schedule(() => setVisibleMessages(3), 2250)
+      schedule(() => setVisibleMessages(4), 3250)
+      schedule(() => setVisibleMessages(5), 4150)
+      schedule(() => setVisibleMessages(6), 5050)
 
-      schedule(runExport, 5550)
+      schedule(runExport, 7200)
     }
 
     const runExport = () => {
