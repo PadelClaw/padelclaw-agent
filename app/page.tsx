@@ -111,8 +111,36 @@ const reminderMessages: readonly ChatMessage[] = [
   },
 ] as const
 
+const exportMessages: readonly ChatMessage[] = [
+  {
+    align: 'left',
+    tone: 'trainer',
+    text: 'Kannst du die Woche als Excel?',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Klar, einen Moment...',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '📎 KW13.xlsx bereit!',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '8 Buchungen, Di–Sa ✅',
+  },
+  {
+    align: 'left',
+    tone: 'trainer',
+    text: '👌 Top, danke!',
+  },
+] as const
+
 function AnimatedPhoneMockup() {
-  const [sequence, setSequence] = useState<'booking' | 'reminder'>('booking')
+  const [sequence, setSequence] = useState<'booking' | 'reminder' | 'export'>('booking')
   const [visibleMessages, setVisibleMessages] = useState(0)
 
   useEffect(() => {
@@ -154,7 +182,20 @@ function AnimatedPhoneMockup() {
       schedule(() => setVisibleMessages(9), 9850)
       schedule(() => setVisibleMessages(10), 10850)
 
-      schedule(runBooking, 12800)
+      schedule(runExport, 12800)
+    }
+
+    const runExport = () => {
+      setSequence('export')
+      setVisibleMessages(0)
+
+      schedule(() => setVisibleMessages(1), 450)
+      schedule(() => setVisibleMessages(2), 1350)
+      schedule(() => setVisibleMessages(3), 3350)
+      schedule(() => setVisibleMessages(4), 4250)
+      schedule(() => setVisibleMessages(5), 5150)
+
+      schedule(runBooking, 6750)
     }
 
     runBooking()
@@ -165,8 +206,13 @@ function AnimatedPhoneMockup() {
     }
   }, [])
 
-  const messages = sequence === 'booking' ? bookingMessages : reminderMessages
-  const title = sequence === 'reminder' ? 'PadelClaw an Trainer' : 'PadelClaw 🤖'
+  const messages =
+    sequence === 'booking'
+      ? bookingMessages
+      : sequence === 'reminder'
+        ? reminderMessages
+        : exportMessages
+  const title = sequence === 'booking' ? 'PadelClaw 🤖' : 'PadelClaw → Trainer'
 
   return (
     <>
