@@ -6,12 +6,12 @@ const features = [
   {
     icon: '📲',
     title: 'WhatsApp-Buchungen',
-    text: 'Spieler buchen direkt per WhatsApp. Kein App-Download nötig.',
+    text: 'Spieler buchen direkt per WhatsApp. Keine App nötig.',
   },
   {
     icon: '📅',
     title: 'Kalender-Management',
-    text: 'Alle Buchungen automatisch im Kalender. Immer aktuell.',
+    text: 'Alle Termine automatisch erfasst und verwaltet.',
   },
   {
     icon: '🤖',
@@ -187,44 +187,33 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      <section className="relative px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {features.map((feature) => (
-              <article
-                key={feature.title}
-                className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-7 backdrop-blur"
-              >
-                <div className="text-3xl">{feature.icon}</div>
-                <h2 className="mt-6 text-2xl font-semibold tracking-[-0.03em] text-white">
-                  {feature.title}
-                </h2>
-                <p className="mt-3 text-base leading-7 text-slate-300">{feature.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="relative px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl">
-          <div className="rounded-[2.25rem] border border-lime-400/20 bg-lime-400/10 px-6 py-8 shadow-[0_35px_130px_-80px_rgba(163,230,53,0.6)] backdrop-blur sm:px-10 sm:py-10">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">
-                  Waitlist
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-                  Bereit für weniger Chaos?
-                </h2>
-              </div>
-              <div className="w-full max-w-xl">
-                <WaitlistForm
-                  buttonLabel="Frühen Zugang sichern"
-                  inputClassName="h-14 flex-1 rounded-full border border-white/15 bg-[#0b1224] px-5 text-base text-white outline-none transition placeholder:text-slate-500 focus:border-lime-400 focus:bg-[#101933]"
-                />
-              </div>
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-[2.25rem] border border-white/10 bg-white/[0.03] p-6 shadow-[0_35px_130px_-90px_rgba(163,230,53,0.45)] backdrop-blur sm:p-10">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">
+                Features
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+                Was PadelClaw für dich erledigt
+              </h2>
+            </div>
+
+            <div className="mt-10 grid gap-6 lg:grid-cols-3">
+              {features.map((feature) => (
+                <article
+                  key={feature.title}
+                  className="rounded-[2rem] border border-white/10 bg-[#09101f] p-7 shadow-[0_30px_100px_-80px_rgba(163,230,53,0.35)]"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-lime-400 text-3xl shadow-[0_20px_50px_-30px_rgba(163,230,53,0.9)]">
+                    <span aria-hidden="true">{feature.icon}</span>
+                  </div>
+                  <h2 className="mt-6 text-2xl font-semibold tracking-[-0.03em] text-white">
+                    {feature.title}
+                  </h2>
+                  <p className="mt-3 text-base leading-7 text-slate-300">{feature.text}</p>
+                </article>
+              ))}
             </div>
           </div>
         </div>
