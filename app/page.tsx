@@ -66,8 +66,36 @@ const reminderMessages = [
   },
 ] as const
 
+const exportMessages = [
+  {
+    align: 'left',
+    tone: 'trainer',
+    text: 'Kannst du mir meine Woche als Excel schicken? 📊\nDi 18:00–19:00 Fernando (Club Hannover), Mi 19:30–20:30 Maria (Padel Werk), Fr 21:00–22:00 Luis (Racket Arena)',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Klar! Ich erstelle dir die Übersicht...\nIch nehme alle Slots mit Club-Namen, Zeiten und Spielern rein.',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '📎 Kalenderwoche_KW13.xlsx\nMit Einträgen wie Di 18:00–19:00 Fernando (Club Hannover) und Do 17:00–18:00 Sofia (Padel Werk)',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Mo–Fr, 8 Buchungen, 3 Clubs ✅\nDi 18:00–19:00 Fernando (Club Hannover)\nMi 19:30–20:30 Maria (Padel Werk)\nFr 21:00–22:00 Luis (Racket Arena)',
+  },
+  {
+    align: 'left',
+    tone: 'trainer',
+    text: '👌 Danke!\nPerfekt, so sehe ich Zeiten, Spieler und Clubs direkt.',
+  },
+] as const
+
 function AnimatedPhoneMockup() {
-  const [sequence, setSequence] = useState<'booking' | 'reminder'>('booking')
+  const [sequence, setSequence] = useState<'booking' | 'reminder' | 'export'>('booking')
   const [visibleMessages, setVisibleMessages] = useState(0)
 
   useEffect(() => {
@@ -102,7 +130,20 @@ function AnimatedPhoneMockup() {
         schedule(() => setVisibleMessages(index + 1), 450 + index * 900)
       })
 
-      schedule(runBooking, 5550)
+      schedule(runExport, 5550)
+    }
+
+    const runExport = () => {
+      setSequence('export')
+      setVisibleMessages(0)
+
+      schedule(() => setVisibleMessages(1), 450)
+      schedule(() => setVisibleMessages(2), 1300)
+      schedule(() => setVisibleMessages(3), 2800)
+      schedule(() => setVisibleMessages(4), 3600)
+      schedule(() => setVisibleMessages(5), 4450)
+
+      schedule(runBooking, 6900)
     }
 
     runBooking()
@@ -113,8 +154,13 @@ function AnimatedPhoneMockup() {
     }
   }, [])
 
-  const messages = sequence === 'booking' ? bookingMessages : reminderMessages
-  const title = sequence === 'booking' ? 'PadelClaw 🤖' : 'PadelClaw an Trainer'
+  const messages =
+    sequence === 'booking'
+      ? bookingMessages
+      : sequence === 'reminder'
+        ? reminderMessages
+        : exportMessages
+  const title = sequence === 'reminder' ? 'PadelClaw an Trainer' : 'PadelClaw 🤖'
 
   return (
     <>
@@ -159,7 +205,7 @@ function AnimatedPhoneMockup() {
                       message.align === 'right'
                         ? 'rounded-br-md bg-[#dcf8c6]'
                         : 'rounded-bl-md bg-[#e5e7eb]'
-                    }`}
+                    } whitespace-pre-line`}
                   >
                     {message.text}
                   </div>
