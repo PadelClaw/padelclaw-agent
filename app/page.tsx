@@ -115,7 +115,7 @@ export default function Home() {
                   Weniger Admin. Mehr Zeit auf dem Court.
                 </div>
                 <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-[-0.04em] text-white sm:text-6xl">
-                  Der KI-Assistent fuer Padel-Trainer
+                  Der KI-Assistent für Padel-Trainer
                 </h1>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
                   Buchungen, WhatsApp-Kommunikation und Kalender-Management - alles in
@@ -123,7 +123,7 @@ export default function Home() {
                 </p>
 
                 <div className="mt-8 max-w-2xl">
-                  <WaitlistForm buttonLabel="Fruehen Zugang sichern" />
+                  <WaitlistForm buttonLabel="Frühen Zugang sichern" />
                 </div>
               </div>
 
@@ -145,7 +145,7 @@ export default function Home() {
                       <div className="rounded-[1.5rem] bg-white/5 p-4 text-sm text-slate-200">
                         <p className="font-medium text-white">Neuer Slot gebucht</p>
                         <p className="mt-2 text-slate-400">
-                          Fernando hat Mittwoch 18:00 bestaetigt. Platz und Spieler sind
+                          Fernando hat Mittwoch 18:00 bestätigt. Platz und Spieler sind
                           eingetragen.
                         </p>
                       </div>
@@ -208,12 +208,12 @@ export default function Home() {
                   Waitlist
                 </p>
                 <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-                  Bereit fuer weniger Chaos?
+                  Bereit für weniger Chaos?
                 </h2>
               </div>
               <div className="w-full max-w-xl">
                 <WaitlistForm
-                  buttonLabel="Fruehen Zugang sichern"
+                  buttonLabel="Frühen Zugang sichern"
                   inputClassName="h-14 flex-1 rounded-full border border-white/15 bg-[#0b1224] px-5 text-base text-white outline-none transition placeholder:text-slate-500 focus:border-lime-400 focus:bg-[#101933]"
                 />
               </div>
