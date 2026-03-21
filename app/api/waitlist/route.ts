@@ -1,29 +1,6 @@
-import { promises as fs } from 'fs'
-import path from 'path'
 import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
-
-const WAITLIST_FILE = path.join(process.cwd(), 'public', 'waitlist.json')
-
-type WaitlistEntry = {
-  email: string
-  createdAt: string
-}
-
-async function readWaitlist(): Promise<WaitlistEntry[]> {
-  try {
-    const contents = await fs.readFile(WAITLIST_FILE, 'utf8')
-    const parsed = JSON.parse(contents) as unknown
-    return Array.isArray(parsed) ? (parsed as WaitlistEntry[]) : []
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return []
-    }
-
-    throw error
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -42,22 +19,41 @@ export async function POST(request: Request) {
       )
     }
 
-    const entries = await readWaitlist()
+    const resendApiKey = process.env.RESEND_API_KEY
+    const createdAt = new Date().toISOString()
 
-    if (entries.some((entry) => entry.email === email)) {
-      return NextResponse.json({ message: 'Diese E-Mail ist bereits eingetragen.' })
+    if (!resendApiKey) {
+      console.log(`Neue Waitlist Anmeldung: ${email}`, { createdAt })
+      return NextResponse.json({ message: 'Waitlist-Eintrag gespeichert.' }, { status: 201 })
     }
 
-    const nextEntries = [
-      ...entries,
-      {
-        email,
-        createdAt: new Date().toISOString(),
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
       },
-    ]
+      body: JSON.stringify({
+        from: 'waitlist@padelclaw.ai',
+        to: 'admin@padelclaw.ai',
+        subject: 'Neue Waitlist Anmeldung',
+        text: `Neue Waitlist Anmeldung: ${email}`,
+      }),
+    })
 
-    await fs.mkdir(path.dirname(WAITLIST_FILE), { recursive: true })
-    await fs.writeFile(WAITLIST_FILE, JSON.stringify(nextEntries, null, 2) + '\n', 'utf8')
+    if (!resendResponse.ok) {
+      const errorText = await resendResponse.text()
+      console.error('Resend waitlist email failed', {
+        status: resendResponse.status,
+        body: errorText,
+        email,
+      })
+
+      return NextResponse.json(
+        { message: 'Waitlist konnte nicht gespeichert werden.' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ message: 'Waitlist-Eintrag gespeichert.' }, { status: 201 })
   } catch {

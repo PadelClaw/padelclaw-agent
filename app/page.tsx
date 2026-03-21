@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 
 const features = [
   {
@@ -19,6 +19,165 @@ const features = [
     text: 'Antwortet für dich, erinnert Spieler, verwaltet Stornierungen.',
   },
 ] as const
+
+const bookingMessages = [
+  {
+    align: 'left',
+    tone: 'player',
+    text: 'Hey, kann ich Donnerstag 18 Uhr buchen? 🎾',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Hi Fernando! Donnerstag 18:00 ist frei ✅',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Soll ich reservieren?',
+  },
+  {
+    align: 'left',
+    tone: 'player',
+    text: 'Ja bitte! 👍',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '🎾 Gebucht! Bis Donnerstag!',
+  },
+] as const
+
+const reminderMessages = [
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '📅 Morgen früh: 3 Buchungen',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Fernando 18:00, Maria 19:30, Luis 21:00',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: 'Alles bestätigt ✅',
+  },
+] as const
+
+function AnimatedPhoneMockup() {
+  const [sequence, setSequence] = useState<'booking' | 'reminder'>('booking')
+  const [visibleMessages, setVisibleMessages] = useState(0)
+
+  useEffect(() => {
+    let isCancelled = false
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+
+    const schedule = (callback: () => void, delay: number) => {
+      const timeout = setTimeout(() => {
+        if (!isCancelled) {
+          callback()
+        }
+      }, delay)
+      timeouts.push(timeout)
+    }
+
+    const runBooking = () => {
+      setSequence('booking')
+      setVisibleMessages(0)
+
+      bookingMessages.forEach((_, index) => {
+        schedule(() => setVisibleMessages(index + 1), 450 + index * 800)
+      })
+
+      schedule(runReminder, 6750)
+    }
+
+    const runReminder = () => {
+      setSequence('reminder')
+      setVisibleMessages(0)
+
+      reminderMessages.forEach((_, index) => {
+        schedule(() => setVisibleMessages(index + 1), 450 + index * 900)
+      })
+
+      schedule(runBooking, 5550)
+    }
+
+    runBooking()
+
+    return () => {
+      isCancelled = true
+      timeouts.forEach((timeout) => clearTimeout(timeout))
+    }
+  }, [])
+
+  const messages = sequence === 'booking' ? bookingMessages : reminderMessages
+  const title = sequence === 'booking' ? 'PadelClaw 🤖' : 'PadelClaw an Trainer'
+
+  return (
+    <>
+      <style jsx>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .chat-bubble-enter {
+          animation: fade-in-up 0.45s ease-out both;
+        }
+      `}</style>
+
+      <div className="relative w-full max-w-[260px] rounded-[2.8rem] border border-white/10 bg-[#0a0f1c] p-2 shadow-[0_30px_100px_-60px_rgba(163,230,53,0.3)]">
+        <div className="overflow-hidden rounded-[2.35rem] bg-[#0b141a]">
+          <div className="bg-[#25d366] px-4 py-4 text-slate-950">
+            <p className="text-[15px] font-semibold">{title}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs font-medium">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-900/80" />
+              <span>online</span>
+            </div>
+          </div>
+
+          <div className="flex h-[404px] flex-col justify-between bg-[linear-gradient(180deg,#efeae2_0%,#e6dfd6_100%)]">
+            <div className="flex-1 space-y-3 px-3 py-4 text-[13px] leading-5 text-slate-800">
+              {messages.slice(0, visibleMessages).map((message, index) => (
+                <div
+                  key={`${sequence}-${index}`}
+                  className={`chat-bubble-enter flex ${
+                    message.align === 'right' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-[84%] rounded-[1.2rem] px-3 py-2 shadow-sm ${
+                      message.align === 'right'
+                        ? 'rounded-br-md bg-[#dcf8c6]'
+                        : 'rounded-bl-md bg-[#e5e7eb]'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-slate-200 bg-[#f7f7f7] px-4 py-3">
+              <div className="mx-auto flex h-9 items-center rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-400 shadow-sm">
+                Nachricht...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
 
 function WaitlistForm({
   buttonLabel,
@@ -130,57 +289,7 @@ export default function Home() {
               <div className="relative">
                 <div className="absolute -left-6 top-10 hidden h-24 w-24 rounded-full bg-lime-400/20 blur-3xl sm:block" />
                 <div className="flex justify-center rounded-[2rem] border border-white/10 bg-[#0b1224] px-6 py-8 shadow-[0_30px_120px_-70px_rgba(15,23,42,0.95)]">
-                  <div className="relative w-full max-w-[280px] rounded-[2.8rem] border-[10px] border-slate-950 bg-slate-950 p-[7px] shadow-[0_30px_100px_-60px_rgba(163,230,53,0.3)]">
-                    <div className="absolute left-1/2 top-3 z-20 h-6 w-32 -translate-x-1/2 rounded-full bg-black" />
-                    <div className="overflow-hidden rounded-[2.25rem] bg-[#0b141a]">
-                      <div className="bg-[#25d366] px-4 pb-3 pt-9 text-slate-950">
-                        <p className="text-base font-semibold">PadelClaw 🤖</p>
-                        <div className="mt-1 flex items-center gap-2 text-xs font-medium">
-                          <span className="h-2.5 w-2.5 rounded-full bg-green-900/80" />
-                          <span>online</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 bg-[linear-gradient(180deg,#efeae2_0%,#e6dfd6_100%)] px-3 py-4 text-[13px] leading-5 text-slate-800">
-                        <div className="flex justify-start">
-                          <div className="max-w-[82%] rounded-[1.2rem] rounded-bl-md bg-[#e5e7eb] px-3 py-2 shadow-sm">
-                            Hallo! Kann ich Donnerstag 18 Uhr buchen?
-                          </div>
-                        </div>
-                        <div className="flex justify-end">
-                          <div className="max-w-[82%] rounded-[1.2rem] rounded-br-md bg-[#dcf8c6] px-3 py-2 shadow-sm">
-                            ✅ Donnerstag 18:00 ist frei! Soll ich den Slot für dich
-                            reservieren?
-                          </div>
-                        </div>
-                        <div className="flex justify-start">
-                          <div className="max-w-[82%] rounded-[1.2rem] rounded-bl-md bg-[#e5e7eb] px-3 py-2 shadow-sm">
-                            Ja bitte!
-                          </div>
-                        </div>
-                        <div className="flex justify-end">
-                          <div className="max-w-[82%] rounded-[1.2rem] rounded-br-md bg-[#dcf8c6] px-3 py-2 shadow-sm">
-                            🎾 Perfekt! Buchung bestätigt. Du bekommst gleich eine
-                            Bestätigung.
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-slate-200 bg-[#f7f7f7] px-4 py-3">
-                        <div className="mx-auto flex w-12 flex-col gap-1 rounded-xl border border-slate-300 bg-white px-2 py-1 shadow-sm">
-                          <div className="grid grid-cols-4 gap-1">
-                            {Array.from({ length: 8 }).map((_, index) => (
-                              <span
-                                key={index}
-                                className="h-1.5 w-1.5 rounded-[2px] bg-slate-400"
-                              />
-                            ))}
-                          </div>
-                          <div className="h-1 rounded-full bg-slate-300" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <AnimatedPhoneMockup />
                 </div>
               </div>
             </div>
