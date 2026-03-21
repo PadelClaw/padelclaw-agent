@@ -64,19 +64,19 @@ const reminderMessages: readonly ChatMessage[] = [
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo 24.03 | 18:00–19:00 | Fernando | Padel Club Madrid',
+    text: 'Mo 24.03 | 18:00–19:00 | Fernando | Padel Club Arena',
     textClassName: 'text-xs leading-4',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo 24.03 | 19:30–20:30 | Maria | Padel Park Barcelona',
+    text: 'Mo 24.03 | 19:30–20:30 | Maria | Padel Court Pro',
     textClassName: 'text-xs leading-4',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo 24.03 | 21:00–22:00 | Luis | Padel Club Madrid',
+    text: 'Mo 24.03 | 21:00–22:00 | Luis | Padel Club Arena',
     textClassName: 'text-xs leading-4',
   },
   {
@@ -87,12 +87,12 @@ const reminderMessages: readonly ChatMessage[] = [
   {
     align: 'right',
     tone: 'agent',
-    text: 'Padel Club Madrid Court 2 ✅',
+    text: 'Padel Club Arena Court 2 ✅',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Padel Park Barcelona Court 1 ✅',
+    text: 'Padel Court Pro Court 1 ✅',
   },
   {
     align: 'right',
