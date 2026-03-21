@@ -129,46 +129,54 @@ export default function Home() {
 
               <div className="relative">
                 <div className="absolute -left-6 top-10 hidden h-24 w-24 rounded-full bg-lime-400/20 blur-3xl sm:block" />
-                <div className="rounded-[2rem] border border-white/10 bg-[#0b1224] p-4 shadow-[0_30px_120px_-70px_rgba(15,23,42,0.95)]">
-                  <div className="rounded-[1.6rem] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-400">Heute</p>
-                        <p className="text-xl font-semibold text-white">Trainer Inbox</p>
-                      </div>
-                      <div className="rounded-full border border-lime-400/20 bg-lime-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-lime-300">
-                        Live
-                      </div>
-                    </div>
-
-                    <div className="mt-6 space-y-3">
-                      <div className="rounded-[1.5rem] bg-white/5 p-4 text-sm text-slate-200">
-                        <p className="font-medium text-white">Neuer Slot gebucht</p>
-                        <p className="mt-2 text-slate-400">
-                          Fernando hat Mittwoch 18:00 bestätigt. Platz und Spieler sind
-                          eingetragen.
-                        </p>
-                      </div>
-                      <div className="rounded-[1.5rem] bg-lime-400 p-4 text-sm text-slate-950">
-                        <p className="font-semibold">WhatsApp automatisch beantwortet</p>
-                        <p className="mt-2">
-                          "Ja, Mittwoch 18:00 ist frei. Ich habe dich direkt eingebucht."
-                        </p>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-[1.5rem] border border-white/8 bg-white/5 p-4">
-                          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                            Kalender
-                          </p>
-                          <p className="mt-3 text-2xl font-semibold text-white">7 Slots</p>
-                          <p className="mt-1 text-sm text-slate-400">automatisch synchron</p>
+                <div className="flex justify-center rounded-[2rem] border border-white/10 bg-[#0b1224] px-6 py-8 shadow-[0_30px_120px_-70px_rgba(15,23,42,0.95)]">
+                  <div className="relative w-full max-w-[280px] rounded-[2.8rem] border-[10px] border-slate-950 bg-slate-950 p-[7px] shadow-[0_30px_100px_-60px_rgba(163,230,53,0.3)]">
+                    <div className="absolute left-1/2 top-3 z-20 h-6 w-32 -translate-x-1/2 rounded-full bg-black" />
+                    <div className="overflow-hidden rounded-[2.25rem] bg-[#0b141a]">
+                      <div className="bg-[#25d366] px-4 pb-3 pt-9 text-slate-950">
+                        <p className="text-base font-semibold">PadelClaw 🤖</p>
+                        <div className="mt-1 flex items-center gap-2 text-xs font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-green-900/80" />
+                          <span>online</span>
                         </div>
-                        <div className="rounded-[1.5rem] border border-white/8 bg-white/5 p-4">
-                          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                            Erinnerungen
-                          </p>
-                          <p className="mt-3 text-2xl font-semibold text-white">3 heute</p>
-                          <p className="mt-1 text-sm text-slate-400">ohne manuellen Aufwand</p>
+                      </div>
+
+                      <div className="space-y-3 bg-[linear-gradient(180deg,#efeae2_0%,#e6dfd6_100%)] px-3 py-4 text-[13px] leading-5 text-slate-800">
+                        <div className="flex justify-start">
+                          <div className="max-w-[82%] rounded-[1.2rem] rounded-bl-md bg-[#e5e7eb] px-3 py-2 shadow-sm">
+                            Hallo! Kann ich Donnerstag 18 Uhr buchen?
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <div className="max-w-[82%] rounded-[1.2rem] rounded-br-md bg-[#dcf8c6] px-3 py-2 shadow-sm">
+                            ✅ Donnerstag 18:00 ist frei! Soll ich den Slot für dich
+                            reservieren?
+                          </div>
+                        </div>
+                        <div className="flex justify-start">
+                          <div className="max-w-[82%] rounded-[1.2rem] rounded-bl-md bg-[#e5e7eb] px-3 py-2 shadow-sm">
+                            Ja bitte!
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <div className="max-w-[82%] rounded-[1.2rem] rounded-br-md bg-[#dcf8c6] px-3 py-2 shadow-sm">
+                            🎾 Perfekt! Buchung bestätigt. Du bekommst gleich eine
+                            Bestätigung.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-200 bg-[#f7f7f7] px-4 py-3">
+                        <div className="mx-auto flex w-12 flex-col gap-1 rounded-xl border border-slate-300 bg-white px-2 py-1 shadow-sm">
+                          <div className="grid grid-cols-4 gap-1">
+                            {Array.from({ length: 8 }).map((_, index) => (
+                              <span
+                                key={index}
+                                className="h-1.5 w-1.5 rounded-[2px] bg-slate-400"
+                              />
+                            ))}
+                          </div>
+                          <div className="h-1 rounded-full bg-slate-300" />
                         </div>
                       </div>
                     </div>
