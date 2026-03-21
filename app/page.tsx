@@ -64,50 +64,27 @@ const reminderMessages: readonly ChatMessage[] = [
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo 24.03 | 18:00–19:00 | Fernando | Padel Club Arena',
-    textClassName: 'text-xs leading-4',
+    text: 'Mo | 18:00 Fernando | Club Arena',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo 24.03 | 19:30–20:30 | Maria | Padel Court Pro',
-    textClassName: 'text-xs leading-4',
+    text: 'Mo | 19:30 Maria | Court Pro',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Mo 24.03 | 21:00–22:00 | Luis | Padel Club Arena',
-    textClassName: 'text-xs leading-4',
+    text: '🏟️ Courts angefragt...',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: '🏟️ Frage Courts an...',
-  },
-  {
-    align: 'right',
-    tone: 'agent',
-    text: 'Padel Club Arena Court 2 ✅',
-  },
-  {
-    align: 'right',
-    tone: 'agent',
-    text: 'Padel Court Pro Court 1 ✅',
-  },
-  {
-    align: 'right',
-    tone: 'agent',
-    text: 'Alles reserviert! 🎾',
+    text: 'Alle reserviert ✅',
   },
   {
     align: 'left',
     tone: 'trainer',
-    text: 'Super! Kurz als Excel?',
-  },
-  {
-    align: 'right',
-    tone: 'agent',
-    text: '📎 KW13.xlsx — fertig!',
+    text: '👌 Top!',
   },
 ] as const
 
@@ -115,7 +92,7 @@ const exportMessages: readonly ChatMessage[] = [
   {
     align: 'left',
     tone: 'trainer',
-    text: 'Kannst du die Woche als Excel?',
+    text: 'Erstelle die Wochenübersicht als Excel.',
   },
   {
     align: 'right',
@@ -174,15 +151,11 @@ function AnimatedPhoneMockup() {
       schedule(() => setVisibleMessages(1), 450)
       schedule(() => setVisibleMessages(2), 1350)
       schedule(() => setVisibleMessages(3), 2250)
-      schedule(() => setVisibleMessages(4), 3250)
-      schedule(() => setVisibleMessages(5), 5550)
-      schedule(() => setVisibleMessages(6), 7050)
-      schedule(() => setVisibleMessages(7), 7950)
-      schedule(() => setVisibleMessages(8), 8850)
-      schedule(() => setVisibleMessages(9), 9850)
-      schedule(() => setVisibleMessages(10), 10850)
+      schedule(() => setVisibleMessages(4), 4250)
+      schedule(() => setVisibleMessages(5), 6250)
+      schedule(() => setVisibleMessages(6), 7150)
 
-      schedule(runExport, 12800)
+      schedule(runExport, 9000)
     }
 
     const runExport = () => {
@@ -212,7 +185,7 @@ function AnimatedPhoneMockup() {
       : sequence === 'reminder'
         ? reminderMessages
         : exportMessages
-  const title = sequence === 'booking' ? 'PadelClaw 🤖' : 'PadelClaw → Trainer'
+  const title = sequence === 'booking' ? 'Spieler → PadelClaw' : 'PadelClaw → Trainer'
 
   return (
     <>
