@@ -62,25 +62,20 @@ export async function POST(request: Request) {
       trainerId = existingTrainer?._id ?? null;
     }
 
-    if (!trainerId) {
-      return NextResponse.json(
-        { error: 'Trainerprofil fehlt. Bitte Onboarding erneut starten.' },
-        { status: 400 },
-      );
+    const response = NextResponse.json({ success: true, trainerId: trainerId ?? undefined });
+
+    if (trainerId) {
+      const sessionToken = createSessionToken(trainerId, phone);
+      response.cookies.set({
+        name: 'padelclaw_session',
+        value: sessionToken,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      });
     }
-
-    const sessionToken = createSessionToken(trainerId, phone);
-    const response = NextResponse.json({ success: true, trainerId });
-
-    response.cookies.set({
-      name: 'padelclaw_session',
-      value: sessionToken,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
 
     return response;
   } catch (error) {

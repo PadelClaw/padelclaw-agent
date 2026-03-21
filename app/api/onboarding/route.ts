@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { convexMutation } from '@/lib/convex-http'
 import { sendWhatsApp } from '@/lib/whatsapp-meta'
 import { prisma } from '@/lib/prisma'
 
@@ -21,6 +22,9 @@ type AvailabilityInput = Record<
 type OnboardingPayload = {
   plan?: unknown
   name?: unknown
+  region?: unknown
+  club?: unknown
+  phone?: unknown
   clubName?: unknown
   location?: unknown
   language?: unknown
@@ -43,6 +47,11 @@ function parsePositiveInt(value: unknown) {
 
 function normalizePhone(countryCode: string, phone: string) {
   const digits = `${countryCode}${phone}`.replace(/\D/g, '')
+  return digits ? `+${digits}` : ''
+}
+
+function normalizeSinglePhone(phone: string) {
+  const digits = phone.replace(/\D/g, '')
   return digits ? `+${digits}` : ''
 }
 
@@ -111,6 +120,9 @@ export async function POST(req: NextRequest) {
 
   const name = asCleanString(payload.name)
   const plan = asCleanString(payload.plan) || 'free'
+  const region = asCleanString(payload.region)
+  const club = asCleanString(payload.club)
+  const phone = normalizeSinglePhone(asCleanString(payload.phone))
   const clubName = asCleanString(payload.clubName)
   const location = asCleanString(payload.location)
   const language = asCleanString(payload.language)
@@ -122,6 +134,36 @@ export async function POST(req: NextRequest) {
   const pricePackage10 = parsePositiveInt(payload.pricePackage10)
   const availability = validateAvailability(payload.availability)
   const trainerPhone = normalizePhone(countryCode, whatsappNumber)
+
+  if (plan === 'free-beta') {
+    if (!name || phone.replace(/\D/g, '').length < 8) {
+      return NextResponse.json(
+        { error: 'Name und gültige WhatsApp-Nummer sind erforderlich.' },
+        { status: 400 },
+      )
+    }
+
+    try {
+      const trainerId = await convexMutation<string>('trainers:upsertBetaTrainer', {
+        name,
+        region: region || undefined,
+        club: club || undefined,
+        phone,
+        plan,
+      })
+
+      return NextResponse.json({
+        success: true,
+        trainerId,
+      })
+    } catch (error) {
+      console.error('Beta onboarding failed:', error)
+      return NextResponse.json(
+        { error: 'Beta-Onboarding konnte nicht abgeschlossen werden.' },
+        { status: 500 },
+      )
+    }
+  }
 
   if (!name || !clubName || !location) {
     return NextResponse.json({ error: 'Name, Club-Name und Standort sind Pflichtfelder.' }, { status: 400 })

@@ -144,6 +144,52 @@ export const ensureTrainer = mutation({
       phone: args.phone,
       name: args.name,
       plan: args.plan ?? 'free',
+      region: undefined,
+      club: undefined,
+      createdAt: Date.now(),
+      magicToken: '',
+      magicTokenExpiry: 0,
+      verified: true,
+      agentDeployed: false,
+    });
+  },
+});
+
+export const upsertBetaTrainer = mutation({
+  args: {
+    name: v.string(),
+    region: v.optional(v.string()),
+    club: v.optional(v.string()),
+    phone: v.string(),
+    plan: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const trainerByPhone = await ctx.db
+      .query('trainers')
+      .withIndex('by_phone', (q) => q.eq('phone', args.phone))
+      .first();
+
+    if (trainerByPhone) {
+      await ctx.db.patch(trainerByPhone._id, {
+        name: args.name,
+        region: args.region,
+        club: args.club,
+        plan: args.plan,
+        verified: true,
+      });
+
+      return trainerByPhone._id;
+    }
+
+    const syntheticEmail = `beta+${args.phone.replace(/\D/g, '')}@padelclaw.local`;
+
+    return await ctx.db.insert('trainers', {
+      email: syntheticEmail,
+      phone: args.phone,
+      name: args.name,
+      plan: args.plan,
+      region: args.region,
+      club: args.club,
       createdAt: Date.now(),
       magicToken: '',
       magicTokenExpiry: 0,

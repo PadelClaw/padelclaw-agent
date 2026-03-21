@@ -17,6 +17,8 @@ export default defineSchema({
     phone: v.string(),
     name: v.string(),
     plan: v.string(),
+    region: v.optional(v.string()),
+    club: v.optional(v.string()),
     createdAt: v.number(),
     magicToken: v.string(),
     magicTokenExpiry: v.number(),
