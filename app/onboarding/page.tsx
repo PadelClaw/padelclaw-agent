@@ -1,63 +1,31 @@
 'use client'
 
-import type { FormEvent, HTMLAttributes } from 'react'
-import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import type { ClipboardEvent, HTMLAttributes, KeyboardEvent } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-type LanguageCode = 'de' | 'en' | 'es'
-type AvailabilityKey = 'weekdays' | 'saturday'
-type PlanCode = 'free' | 'basic' | 'pro'
+type PlanCode = 'free' | 'basic' | 'pro';
 
-type AvailabilityState = Record<
-  AvailabilityKey,
-  {
-    label: string
-    days: string
-    enabled: boolean
-    startTime: string
-    endTime: string
-  }
->
-
-const languages: Array<{ value: LanguageCode; label: string }> = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-]
-
+const allowedPlans: PlanCode[] = ['free', 'basic', 'pro'];
 const countryCodes = [
   { value: '+49', label: 'DE +49' },
   { value: '+34', label: 'ES +34' },
   { value: '+43', label: 'AT +43' },
   { value: '+41', label: 'CH +41' },
   { value: '+1', label: 'US +1' },
-]
-
-const initialAvailability: AvailabilityState = {
-  weekdays: {
-    label: 'Mo-Fr',
-    days: 'wochentags',
-    enabled: true,
-    startTime: '09:00',
-    endTime: '19:00',
-  },
-  saturday: {
-    label: 'Sa',
-    days: 'samstags',
-    enabled: true,
-    startTime: '10:00',
-    endTime: '14:00',
-  },
-}
-
-const allowedPlans: PlanCode[] = ['free', 'basic', 'pro']
+];
 
 function parsePlan(value: string | null): PlanCode {
-  return allowedPlans.includes(value as PlanCode) ? (value as PlanCode) : 'free'
+  return allowedPlans.includes(value as PlanCode) ? (value as PlanCode) : 'free';
 }
 
 function formatPlanLabel(plan: PlanCode) {
-  return plan.charAt(0).toUpperCase() + plan.slice(1)
+  return plan.charAt(0).toUpperCase() + plan.slice(1);
+}
+
+function normalizePhone(countryCode: string, phone: string) {
+  const digits = `${countryCode}${phone}`.replace(/\D/g, '');
+  return digits ? `+${digits}` : '';
 }
 
 export default function OnboardingPage() {
@@ -65,153 +33,170 @@ export default function OnboardingPage() {
     <Suspense fallback={<OnboardingSkeleton />}>
       <OnboardingContent />
     </Suspense>
-  )
+  );
 }
 
 function OnboardingContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [step, setStep] = useState(1)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [plan, setPlan] = useState<PlanCode>('free')
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  const [name, setName] = useState('')
-  const [clubName, setClubName] = useState('')
-  const [location, setLocation] = useState('')
-  const [language, setLanguage] = useState<LanguageCode>('de')
+  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [plan, setPlan] = useState<PlanCode>('free');
 
-  const [priceSingle, setPriceSingle] = useState('')
-  const [pricePackage5, setPricePackage5] = useState('')
-  const [pricePackage10, setPricePackage10] = useState('')
-  const [availability, setAvailability] = useState<AvailabilityState>(initialAvailability)
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [countryCode, setCountryCode] = useState('+49');
+  const [whatsAppNumber, setWhatsAppNumber] = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
 
-  const [countryCode, setCountryCode] = useState('+49')
-  const [whatsAppNumber, setWhatsAppNumber] = useState('')
-
-  const currentStepLabel = useMemo(() => `Schritt ${step} von 3`, [step])
-  const selectedPlanLabel = useMemo(() => formatPlanLabel(plan), [plan])
+  const phone = useMemo(
+    () => normalizePhone(countryCode, whatsAppNumber),
+    [countryCode, whatsAppNumber],
+  );
+  const otpCode = useMemo(() => otpDigits.join(''), [otpDigits]);
+  const currentStepLabel = useMemo(() => `Schritt ${step} von 3`, [step]);
+  const selectedPlanLabel = useMemo(() => formatPlanLabel(plan), [plan]);
 
   useEffect(() => {
-    const queryPlan = parsePlan(searchParams.get('plan'))
+    const queryPlan = parsePlan(searchParams.get('plan'));
     const storedPlan =
-      typeof window !== 'undefined' ? parsePlan(window.localStorage.getItem('padelclaw-plan')) : 'free'
-    const resolvedPlan = searchParams.get('plan') ? queryPlan : storedPlan
+      typeof window !== 'undefined' ? parsePlan(window.localStorage.getItem('padelclaw-plan')) : 'free';
+    const resolvedPlan = searchParams.get('plan') ? queryPlan : storedPlan;
 
-    setPlan(resolvedPlan)
-    window.localStorage.setItem('padelclaw-plan', resolvedPlan)
-  }, [searchParams])
+    setPlan(resolvedPlan);
+    window.localStorage.setItem('padelclaw-plan', resolvedPlan);
+  }, [searchParams]);
 
-  function updateAvailability(key: AvailabilityKey, patch: Partial<AvailabilityState[AvailabilityKey]>) {
-    setAvailability((current) => ({
-      ...current,
-      [key]: {
-        ...current[key],
-        ...patch,
-      },
-    }))
-  }
-
-  function validateStep(targetStep: number): boolean {
-    if (targetStep === 1) {
-      if (!name.trim() || !clubName.trim() || !location.trim()) {
-        setError('Bitte fülle Name, Club und Standort aus.')
-        return false
-      }
+  function validateStepOne() {
+    if (!name.trim() || !email.trim()) {
+      setError('Bitte gib Name und E-Mail an.');
+      return false;
     }
 
-    if (targetStep === 2) {
-      const single = Number(priceSingle)
-      const package5 = Number(pricePackage5)
-      const package10 = Number(pricePackage10)
-      const enabledSlots = Object.values(availability).filter((slot) => slot.enabled)
-
-      if (![single, package5, package10].every((value) => Number.isFinite(value) && value > 0)) {
-        setError('Bitte gib gültige Preise größer als 0 ein.')
-        return false
-      }
-
-      if (enabledSlots.length === 0) {
-        setError('Bitte aktiviere mindestens einen verfügbaren Zeitraum.')
-        return false
-      }
-
-      if (
-        enabledSlots.some(
-          (slot) => !slot.startTime || !slot.endTime || slot.startTime >= slot.endTime,
-        )
-      ) {
-        setError('Bitte prüfe die Start- und Endzeiten deiner Verfügbarkeit.')
-        return false
-      }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email.trim())) {
+      setError('Bitte gib eine gültige E-Mail-Adresse ein.');
+      return false;
     }
 
-    if (targetStep === 3) {
-      const digits = whatsAppNumber.replace(/\D/g, '')
-      if (digits.length < 6) {
-        setError('Bitte gib eine gültige WhatsApp-Nummer ein.')
-        return false
-      }
+    if (phone.replace(/\D/g, '').length < 8) {
+      setError('Bitte gib eine gültige WhatsApp-Nummer ein.');
+      return false;
     }
 
-    setError('')
-    return true
+    setError('');
+    return true;
   }
 
-  function goNext() {
-    if (!validateStep(step)) return
-    setStep((current) => Math.min(current + 1, 3))
-  }
+  async function handleSendOtp() {
+    if (!validateStepOne()) return;
 
-  function goBack() {
-    setError('')
-    setStep((current) => Math.max(current - 1, 1))
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!validateStep(3)) return
-
-    setIsSubmitting(true)
-    setError('')
+    setIsSubmitting(true);
+    setError('');
 
     try {
-      const response = await fetch('/api/onboarding', {
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const result = (await response.json()) as { success?: boolean; error?: string };
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'OTP konnte nicht versendet werden.');
+      }
+
+      setOtpDigits(['', '', '', '', '', '']);
+      setStep(2);
+      window.setTimeout(() => otpRefs.current[0]?.focus(), 50);
+    } catch (sendError) {
+      setError(
+        sendError instanceof Error ? sendError.message : 'OTP konnte nicht versendet werden.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (otpCode.length !== 6) {
+      setError('Bitte gib den 6-stelligen Code ein.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          plan,
           name,
-          clubName,
-          location,
-          language,
-          priceSingle,
-          pricePackage5,
-          pricePackage10,
-          availability,
-          countryCode,
-          whatsappNumber: whatsAppNumber,
+          email,
+          phone,
+          code: otpCode,
         }),
-      })
+      });
 
-      const result = (await response.json()) as { success?: boolean; trainerId?: number; error?: string }
+      const result = (await response.json()) as { success?: boolean; trainerId?: string; error?: string };
 
       if (!response.ok || !result.success || !result.trainerId) {
-        throw new Error(result.error || 'Onboarding konnte nicht abgeschlossen werden.')
+        throw new Error(result.error || 'OTP konnte nicht verifiziert werden.');
       }
 
-      router.push(`/onboarding/success?trainerId=${result.trainerId}`)
-    } catch (submitError) {
+      setStep(3);
+      router.push(`/onboarding/success?trainerId=${result.trainerId}`);
+    } catch (verifyError) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : 'Onboarding konnte nicht abgeschlossen werden.',
-      )
+        verifyError instanceof Error ? verifyError.message : 'OTP konnte nicht verifiziert werden.',
+      );
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
+  }
+
+  function updateOtpDigit(index: number, value: string) {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const nextDigits = [...otpDigits];
+    nextDigits[index] = digit;
+    setOtpDigits(nextDigits);
+
+    if (digit && index < otpRefs.current.length - 1) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handleOtpKeyDown(index: number, event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  }
+
+  function handleOtpPaste(event: ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    const pastedDigits = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('');
+
+    if (pastedDigits.length === 0) {
+      return;
+    }
+
+    const nextDigits = ['', '', '', '', '', ''];
+    pastedDigits.forEach((digit, index) => {
+      nextDigits[index] = digit;
+    });
+    setOtpDigits(nextDigits);
+
+    const nextIndex = Math.min(pastedDigits.length, 5);
+    otpRefs.current[nextIndex]?.focus();
   }
 
   return (
@@ -233,18 +218,18 @@ function OnboardingContent() {
             <div className="inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-green-700">
               Plan: {selectedPlanLabel}
             </div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-700">
-              Self-Service Onboarding
+            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.2em] text-green-700">
+              WhatsApp Login
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-              Erstelle deinen PadelClaw Agenten
+              Verifiziere dich in 60 Sekunden
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              In drei kurzen Schritten ist dein Trainer-Agent live und auf WhatsApp erreichbar.
+              Gib deine Trainerdaten ein, empfange deinen 6-stelligen Code per WhatsApp und logge dich direkt ein.
             </p>
           </div>
 
-          <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          <div className="mt-8 space-y-5">
             {step === 1 ? (
               <>
                 <Input
@@ -252,124 +237,16 @@ function OnboardingContent() {
                   placeholder="Fernando García"
                   value={name}
                   onChange={setName}
+                  autoComplete="name"
                 />
                 <Input
-                  label="Club-Name"
-                  placeholder="Padel Club Ibiza"
-                  value={clubName}
-                  onChange={setClubName}
+                  label="E-Mail"
+                  placeholder="fernando@club.de"
+                  value={email}
+                  onChange={setEmail}
+                  inputMode="email"
+                  autoComplete="email"
                 />
-                <Input
-                  label="Standort"
-                  placeholder="Ibiza, Spanien"
-                  value={location}
-                  onChange={setLocation}
-                />
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Sprache</label>
-                  <select
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base outline-none transition focus:border-green-500 focus:bg-white"
-                    value={language}
-                    onChange={(event) => setLanguage(event.target.value as LanguageCode)}
-                  >
-                    {languages.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            ) : null}
-
-            {step === 2 ? (
-              <>
-                <div className="grid grid-cols-1 gap-4">
-                  <Input
-                    label="Einzelstunde (€)"
-                    inputMode="numeric"
-                    placeholder="65"
-                    value={priceSingle}
-                    onChange={setPriceSingle}
-                  />
-                  <Input
-                    label="5er-Paket (€)"
-                    inputMode="numeric"
-                    placeholder="300"
-                    value={pricePackage5}
-                    onChange={setPricePackage5}
-                  />
-                  <Input
-                    label="10er-Paket (€)"
-                    inputMode="numeric"
-                    placeholder="550"
-                    value={pricePackage10}
-                    onChange={setPricePackage10}
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Verfügbarkeit</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Aktiviere die Zeitfenster, in denen dein Agent Buchungen annehmen darf.
-                    </p>
-                  </div>
-
-                  {Object.entries(availability).map(([key, slot]) => (
-                    <div
-                      key={key}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-slate-900">{slot.label}</p>
-                          <p className="text-sm text-slate-500">{slot.days}</p>
-                        </div>
-                        <button
-                          type="button"
-                          aria-pressed={slot.enabled}
-                          onClick={() =>
-                            updateAvailability(key as AvailabilityKey, { enabled: !slot.enabled })
-                          }
-                          className={`relative inline-flex h-8 w-14 items-center rounded-full transition ${
-                            slot.enabled ? 'bg-green-600' : 'bg-slate-300'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-6 w-6 transform rounded-full bg-white transition ${
-                              slot.enabled ? 'translate-x-7' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <TimeInput
-                          label="Start"
-                          value={slot.startTime}
-                          disabled={!slot.enabled}
-                          onChange={(value) =>
-                            updateAvailability(key as AvailabilityKey, { startTime: value })
-                          }
-                        />
-                        <TimeInput
-                          label="Ende"
-                          value={slot.endTime}
-                          disabled={!slot.enabled}
-                          onChange={(value) =>
-                            updateAvailability(key as AvailabilityKey, { endTime: value })
-                          }
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : null}
-
-            {step === 3 ? (
-              <>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">WhatsApp-Nummer</label>
                   <div className="grid grid-cols-[116px_1fr] gap-3">
@@ -395,9 +272,40 @@ function OnboardingContent() {
                 </div>
 
                 <div className="rounded-2xl bg-green-50 p-4 text-sm text-green-900">
-                  Nach dem Klick auf <span className="font-semibold">Agent erstellen</span> legen
-                  wir dein Trainerprofil an und schicken direkt eine Willkommensnachricht an deine
-                  WhatsApp-Nummer.
+                  Wir schicken den Login-Code direkt an <span className="font-semibold">{phone || 'deine Nummer'}</span>.
+                </div>
+              </>
+            ) : null}
+
+            {step === 2 ? (
+              <>
+                <div className="rounded-2xl bg-green-50 p-4 text-sm text-green-900">
+                  Der Code wurde an <span className="font-semibold">{phone}</span> gesendet.
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">6-stelliger Code</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Gib den Code aus WhatsApp ein. Er ist 10 Minuten gültig.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {otpDigits.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={(element) => {
+                          otpRefs.current[index] = element;
+                        }}
+                        className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 text-center text-xl font-semibold outline-none transition focus:border-green-500 focus:bg-white"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(event) => updateOtpDigit(index, event.target.value)}
+                        onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                        onPaste={handleOtpPaste}
+                      />
+                    ))}
+                  </div>
                 </div>
               </>
             ) : null}
@@ -411,35 +319,55 @@ function OnboardingContent() {
             <div className="flex items-center justify-between gap-3 pt-2">
               <button
                 type="button"
-                onClick={goBack}
-                disabled={step === 1 || isSubmitting}
+                onClick={() => {
+                  setError('');
+                  if (step === 2) {
+                    setStep(1);
+                    return;
+                  }
+                  router.push('/');
+                }}
+                disabled={isSubmitting}
                 className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Zurück
+                {step === 1 ? 'Abbrechen' : 'Zurück'}
               </button>
-              {step < 3 ? (
+
+              {step === 1 ? (
                 <button
                   type="button"
-                  onClick={goNext}
-                  className="rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-700"
-                >
-                  Weiter
-                </button>
-              ) : (
-                <button
-                  type="submit"
+                  onClick={handleSendOtp}
                   disabled={isSubmitting}
                   className="rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
                 >
-                  {isSubmitting ? 'Erstelle Agent...' : 'Agent erstellen'}
+                  {isSubmitting ? 'Sende Code...' : 'Code senden'}
                 </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={isSubmitting}
+                    className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Neu senden
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={isSubmitting}
+                    className="rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
+                  >
+                    {isSubmitting ? 'Prüfe...' : 'Verifizieren'}
+                  </button>
+                </div>
               )}
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </main>
-  )
+  );
 }
 
 function OnboardingSkeleton() {
@@ -452,7 +380,7 @@ function OnboardingSkeleton() {
         <div className="mt-3 h-4 w-full rounded-xl bg-slate-100" />
       </div>
     </main>
-  )
+  );
 }
 
 function Input({
@@ -461,12 +389,14 @@ function Input({
   value,
   onChange,
   inputMode = 'text',
+  autoComplete,
 }: {
-  label: string
-  placeholder: string
-  value: string
-  onChange: (value: string) => void
-  inputMode?: HTMLAttributes<HTMLInputElement>['inputMode']
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+  inputMode?: HTMLAttributes<HTMLInputElement>['inputMode'];
+  autoComplete?: string;
 }) {
   return (
     <div className="space-y-2">
@@ -476,33 +406,9 @@ function Input({
         placeholder={placeholder}
         value={value}
         inputMode={inputMode}
+        autoComplete={autoComplete}
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
-  )
-}
-
-function TimeInput({
-  label,
-  value,
-  disabled,
-  onChange,
-}: {
-  label: string
-  value: string
-  disabled?: boolean
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-slate-700">{label}</label>
-      <input
-        type="time"
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-      />
-    </div>
-  )
+  );
 }

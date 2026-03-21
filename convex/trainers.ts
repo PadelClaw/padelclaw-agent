@@ -57,6 +57,16 @@ export const getByEmail = query({
   },
 });
 
+export const getByPhone = query({
+  args: { phone: v.string() },
+  handler: async (ctx, { phone }) => {
+    return await ctx.db
+      .query('trainers')
+      .withIndex('by_phone', (q) => q.eq('phone', phone))
+      .first();
+  },
+});
+
 export const getByMagicToken = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -88,5 +98,57 @@ export const verifyMagicToken = mutation({
     });
 
     return { success: true, trainerId: trainer._id };
+  },
+});
+
+export const ensureTrainer = mutation({
+  args: {
+    email: v.string(),
+    phone: v.string(),
+    name: v.string(),
+    plan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const trainerByPhone = await ctx.db
+      .query('trainers')
+      .withIndex('by_phone', (q) => q.eq('phone', args.phone))
+      .first();
+
+    if (trainerByPhone) {
+      await ctx.db.patch(trainerByPhone._id, {
+        email: args.email,
+        name: args.name,
+        verified: true,
+      });
+
+      return trainerByPhone._id;
+    }
+
+    const trainerByEmail = await ctx.db
+      .query('trainers')
+      .withIndex('by_email', (q) => q.eq('email', args.email))
+      .first();
+
+    if (trainerByEmail) {
+      await ctx.db.patch(trainerByEmail._id, {
+        phone: args.phone,
+        name: args.name,
+        verified: true,
+      });
+
+      return trainerByEmail._id;
+    }
+
+    return await ctx.db.insert('trainers', {
+      email: args.email,
+      phone: args.phone,
+      name: args.name,
+      plan: args.plan ?? 'free',
+      createdAt: Date.now(),
+      magicToken: '',
+      magicTokenExpiry: 0,
+      verified: true,
+      agentDeployed: false,
+    });
   },
 });

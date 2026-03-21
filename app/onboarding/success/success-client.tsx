@@ -23,13 +23,13 @@ export default function OnboardingSuccessClient({
     <main className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-100 px-4 py-10 text-slate-900">
       <div className="mx-auto max-w-md rounded-[32px] bg-white p-6 shadow-[0_24px_90px_-44px_rgba(22,163,74,0.5)] ring-1 ring-green-100">
         <div className="inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-          Agent erstellt
+          Verifiziert
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-          Dein Trainer-Agent ist bereit
+          Login erfolgreich
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          Teile die Nummer direkt mit deinem Team oder öffne WhatsApp über den QR-Code.
+          Deine WhatsApp-Nummer ist bestätigt. Teile jetzt die Agent-Nummer direkt mit deinem Team oder öffne WhatsApp über den QR-Code.
         </p>
 
         {trainerId ? (

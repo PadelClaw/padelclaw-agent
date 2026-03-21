@@ -6,6 +6,12 @@ export default defineSchema({
     email: v.string(),
     createdAt: v.number(),
   }).index('by_email', ['email']),
+  otps: defineTable({
+    phone: v.string(),
+    code: v.string(),
+    expiresAt: v.number(),
+    used: v.boolean(),
+  }).index('by_phone', ['phone']),
   trainers: defineTable({
     email: v.string(),
     phone: v.string(),
@@ -18,6 +24,7 @@ export default defineSchema({
     agentDeployed: v.boolean(),
   })
     .index('by_email', ['email'])
+    .index('by_phone', ['phone'])
     .index('by_magic_token', ['magicToken']),
   bookings: defineTable({
     trainerId: v.id('trainers'),
