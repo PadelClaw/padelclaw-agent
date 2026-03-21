@@ -2,6 +2,13 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 
+type ChatMessage = {
+  align: 'left' | 'right'
+  tone: 'player' | 'trainer' | 'agent'
+  text: string
+  textClassName?: string
+}
+
 const features = [
   {
     icon: '📲',
@@ -20,7 +27,7 @@ const features = [
   },
 ] as const
 
-const bookingMessages = [
+const bookingMessages: readonly ChatMessage[] = [
   {
     align: 'left',
     tone: 'player',
@@ -48,69 +55,64 @@ const bookingMessages = [
   },
 ] as const
 
-const reminderMessages = [
+const reminderMessages: readonly ChatMessage[] = [
   {
     align: 'right',
     tone: 'agent',
-    text: '📅 Morgen früh: 3 Buchungen',
+    text: '📅 Morgen deine Buchungen:',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Fernando 18:00, Maria 19:30, Luis 21:00',
+    text: 'Mo 24.03 | 18:00–19:00 | Fernando | Club Hannover',
+    textClassName: 'text-xs leading-4',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Alles bestätigt ✅',
+    text: 'Mo 24.03 | 19:30–20:30 | Maria | Padel Werk',
+    textClassName: 'text-xs leading-4',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: '🏟️ Courts gebucht:',
+    text: 'Mo 24.03 | 21:00–22:00 | Luis | Club Hannover',
+    textClassName: 'text-xs leading-4',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Club Hannover — Court 2 ✅',
+    text: '🏟️ Frage Courts an...',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Padel Werk — Court 1 ✅',
-  },
-] as const
-
-const exportMessages = [
-  {
-    align: 'left',
-    tone: 'trainer',
-    text: 'Kannst du meine Woche\nals Excel schicken? 📊',
+    text: 'Club Hannover Court 2 ✅',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: 'Klar!\nErstelle die Übersicht...',
+    text: 'Padel Werk Court 1 ✅',
   },
   {
     align: 'right',
     tone: 'agent',
-    text: '📎\nKalenderwoche_KW13.xlsx',
-  },
-  {
-    align: 'right',
-    tone: 'agent',
-    text: 'Di–Fr, 8 Buchungen,\n3 Clubs ✅',
+    text: 'Alles reserviert! 🎾',
   },
   {
     align: 'left',
     tone: 'trainer',
-    text: '👌 Perfekt,\ndanke!',
+    text: 'Super! Kurz als Excel?',
+  },
+  {
+    align: 'right',
+    tone: 'agent',
+    text: '📎 KW13.xlsx — fertig!',
   },
 ] as const
 
 function AnimatedPhoneMockup() {
-  const [sequence, setSequence] = useState<'booking' | 'reminder' | 'export'>('booking')
+  const [sequence, setSequence] = useState<'booking' | 'reminder'>('booking')
   const [visibleMessages, setVisibleMessages] = useState(0)
 
   useEffect(() => {
@@ -145,23 +147,14 @@ function AnimatedPhoneMockup() {
       schedule(() => setVisibleMessages(2), 1350)
       schedule(() => setVisibleMessages(3), 2250)
       schedule(() => setVisibleMessages(4), 3250)
-      schedule(() => setVisibleMessages(5), 4150)
-      schedule(() => setVisibleMessages(6), 5050)
+      schedule(() => setVisibleMessages(5), 5550)
+      schedule(() => setVisibleMessages(6), 7050)
+      schedule(() => setVisibleMessages(7), 7950)
+      schedule(() => setVisibleMessages(8), 8850)
+      schedule(() => setVisibleMessages(9), 9850)
+      schedule(() => setVisibleMessages(10), 10850)
 
-      schedule(runExport, 7200)
-    }
-
-    const runExport = () => {
-      setSequence('export')
-      setVisibleMessages(0)
-
-      schedule(() => setVisibleMessages(1), 450)
-      schedule(() => setVisibleMessages(2), 1300)
-      schedule(() => setVisibleMessages(3), 2800)
-      schedule(() => setVisibleMessages(4), 3600)
-      schedule(() => setVisibleMessages(5), 4450)
-
-      schedule(runBooking, 6900)
+      schedule(runBooking, 12800)
     }
 
     runBooking()
@@ -172,12 +165,7 @@ function AnimatedPhoneMockup() {
     }
   }, [])
 
-  const messages =
-    sequence === 'booking'
-      ? bookingMessages
-      : sequence === 'reminder'
-        ? reminderMessages
-        : exportMessages
+  const messages = sequence === 'booking' ? bookingMessages : reminderMessages
   const title = sequence === 'reminder' ? 'PadelClaw an Trainer' : 'PadelClaw 🤖'
 
   return (
@@ -223,7 +211,7 @@ function AnimatedPhoneMockup() {
                       message.align === 'right'
                         ? 'rounded-br-md bg-[#dcf8c6]'
                         : 'rounded-bl-md bg-[#e5e7eb]'
-                    } whitespace-pre-line`}
+                    } whitespace-pre-line ${message.textClassName ?? ''}`}
                   >
                     {message.text}
                   </div>
