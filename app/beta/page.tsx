@@ -131,23 +131,6 @@ export default function BetaPage() {
         throw new Error(onboardingResult.error || 'Onboarding konnte nicht gespeichert werden.');
       }
 
-      const welcomeResponse = await fetch('/api/beta/welcome', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone,
-        }),
-      });
-
-      const welcomeResult = (await welcomeResponse.json()) as { success?: boolean; error?: string };
-
-      if (!welcomeResponse.ok || !welcomeResult.success) {
-        throw new Error(welcomeResult.error || 'Willkommensnachricht konnte nicht versendet werden.');
-      }
-
       setStep(4);
     } catch (verifyError) {
       setError(
