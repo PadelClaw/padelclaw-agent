@@ -3,7 +3,7 @@
 import type { ClipboardEvent, KeyboardEvent } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 const PERSONALITY_OPTIONS = [
   {
     value: 'professional',
@@ -156,7 +156,7 @@ export default function BetaPage() {
         throw new Error(onboardingResult.error || 'Onboarding konnte nicht gespeichert werden.');
       }
 
-      setStep(5);
+      setStep(4);
     } catch (verifyError) {
       setError(
         verifyError instanceof Error ? verifyError.message : 'Beta-Onboarding konnte nicht abgeschlossen werden.',
@@ -213,7 +213,7 @@ export default function BetaPage() {
                 In unter 1 Minute live. Danach schreibt dir dein Agent direkt auf WhatsApp.
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-zinc-300 sm:text-lg">
-                Ein eigener Beta-Flow für Trainer: Plan wählen, Kurzprofil ausfüllen, Nummer verifizieren und sofort starten.
+                Ein eigener Beta-Flow für Trainer: Kurzprofil ausfüllen, Agent-Stil wählen, Nummer verifizieren und sofort starten.
                 Danach übernimmt dein Agent das Setup direkt auf WhatsApp.
               </p>
             </div>
@@ -222,7 +222,7 @@ export default function BetaPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.2em] text-lime-300">Flow</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">5 schnelle Schritte</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">4 schnelle Schritte</p>
                 </div>
                 <span className="rounded-full border border-lime-400/30 bg-lime-400/10 px-3 py-1 text-xs font-semibold text-lime-200">
                   Beta only
@@ -245,28 +245,44 @@ export default function BetaPage() {
             {step === 1 ? (
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 1</p>
-                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Free Beta</h2>
-                <div className="mt-4 inline-flex rounded-full border border-lime-400/30 bg-lime-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-lime-200">
-                  Limitierte Plätze
+                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Dein Profil</h2>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">Schnell ausgefüllt, damit dein Agent direkt loslegen kann.</p>
+
+                <div className="mt-8 space-y-5">
+                  <Field
+                    label="Name"
+                    placeholder="z.B. Fernando Garcia"
+                    value={name}
+                    onChange={setName}
+                    required
+                  />
+                  <Field
+                    label="Stadt/Region"
+                    placeholder="z.B. München"
+                    value={region}
+                    onChange={setRegion}
+                  />
+                  <Field
+                    label="Standard-Club"
+                    placeholder="z.B. Padel Arena"
+                    value={club}
+                    onChange={setClub}
+                  />
                 </div>
-                <div className="mt-6 rounded-[1.75rem] border border-lime-400/15 bg-white/[0.03] p-5">
-                  <p className="text-4xl font-black text-white">0 €</p>
-                  <p className="mt-2 text-sm text-zinc-400">Kostenlos in der Beta, solange Plätze frei sind.</p>
-                  <ul className="mt-6 space-y-3 text-sm text-zinc-200">
-                    <li className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">Unbegrenzte Buchungen</li>
-                    <li className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">WhatsApp Agent</li>
-                    <li className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">Kalender-Sync</li>
-                  </ul>
-                </div>
+
                 <button
                   type="button"
                   onClick={() => {
+                    if (!validateProfile()) {
+                      return;
+                    }
+
                     setError('');
-                      setStep(2);
-                    }}
+                    setStep(2);
+                  }}
                   className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-base font-semibold text-slate-950 transition hover:bg-lime-300"
                 >
-                  Beta starten →
+                  Weiter →
                 </button>
               </div>
             ) : null}
@@ -324,6 +340,8 @@ export default function BetaPage() {
                     type="button"
                     onClick={() => {
                       setError('');
+                      setOtpRequested(false);
+                      setOtpDigits(['', '', '', '', '', '']);
                       setStep(3);
                     }}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-lime-300"
@@ -337,68 +355,9 @@ export default function BetaPage() {
             {step === 3 ? (
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 3</p>
-                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Dein Profil</h2>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">Schnell ausgefüllt, damit dein Agent direkt loslegen kann.</p>
-
-                <div className="mt-8 space-y-5">
-                  <Field
-                    label="Name"
-                    placeholder="z.B. Fernando Garcia"
-                    value={name}
-                    onChange={setName}
-                    required
-                  />
-                  <Field
-                    label="Stadt/Region"
-                    placeholder="z.B. München"
-                    value={region}
-                    onChange={setRegion}
-                  />
-                  <Field
-                    label="Standard-Club"
-                    placeholder="z.B. Padel Arena"
-                    value={club}
-                    onChange={setClub}
-                  />
-                </div>
-
-                <div className="mt-6 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError('');
-                      setStep(2);
-                    }}
-                    className="inline-flex flex-1 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 transition hover:bg-white/10"
-                  >
-                    Zurück
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!validateProfile()) {
-                        return;
-                      }
-
-                      setError('');
-                      setOtpRequested(false);
-                      setOtpDigits(['', '', '', '', '', '']);
-                      setStep(4);
-                    }}
-                    className="inline-flex flex-1 items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-lime-300"
-                  >
-                    Weiter →
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {step === 4 ? (
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 4</p>
-                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Verifiziere deine E-Mail</h2>
+                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Verifiziere deinen Zugang</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Wir senden dir einen Code per E-Mail.
+                  Gib E-Mail und WhatsApp an, lass dir den Code schicken und bestätige ihn direkt hier.
                 </p>
 
                 <div className="mt-8 space-y-5">
@@ -433,7 +392,7 @@ export default function BetaPage() {
                       disabled={isSubmitting}
                       className="inline-flex w-full items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-base font-semibold text-slate-950 transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {isSubmitting ? 'Sende Code...' : 'Code per E-Mail senden'}
+                      {isSubmitting ? 'Sende Code...' : 'Code senden'}
                     </button>
                   ) : (
                     <div className="space-y-5">
@@ -479,12 +438,25 @@ export default function BetaPage() {
                     </div>
                   )}
                 </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError('');
+                      setStep(2);
+                    }}
+                    className="inline-flex flex-1 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 transition hover:bg-white/10"
+                  >
+                    Zurück
+                  </button>
+                </div>
               </div>
             ) : null}
 
-            {step === 5 ? (
+            {step === 4 ? (
               <div className="flex min-h-[420px] flex-col justify-center">
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 5</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 4</p>
                 <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">🎾 Dein Agent ist aktiv!</h2>
                 <p className="mt-4 text-base leading-7 text-zinc-300">
                   Schau auf dein Handy — dein PadelClaw-Assistent hat sich gerade per WhatsApp gemeldet und startet jetzt dein Setup.

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { createSessionToken } from '@/lib/auth-session';
 import { convexMutation, convexQuery } from '@/lib/convex-http';
 import { sendWhatsApp } from '@/lib/whatsapp-meta';
@@ -86,18 +86,6 @@ export async function POST(request: Request) {
       trainerId = existingTrainer?._id ?? null;
     }
 
-    console.log(`WELCOME_ATTEMPT: phone=${phone} shouldSend=${shouldSendWelcomeMessage} trainerId=${trainerId}`);
-
-    // Send welcome BEFORE building the response so it completes before the function exits
-    if (trainerId && shouldSendWelcomeMessage) {
-      try {
-        await sendWhatsApp(phone, buildWelcomeMessage(name));
-        console.log(`WELCOME_SENT: phone=${phone}`);
-      } catch (error) {
-        console.error('welcome whatsapp failed', error);
-      }
-    }
-
     const response = NextResponse.json({ success: true, trainerId: trainerId ?? undefined });
 
     if (trainerId) {
@@ -110,6 +98,19 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === 'production',
         path: '/',
         maxAge: 60 * 60 * 24 * 7,
+      });
+    }
+
+    console.log(`WELCOME_ATTEMPT: phone=${phone} shouldSend=${shouldSendWelcomeMessage} trainerId=${trainerId}`);
+
+    if (trainerId && shouldSendWelcomeMessage) {
+      after(async () => {
+        try {
+          await sendWhatsApp(phone, buildWelcomeMessage(name));
+          console.log(`WELCOME_SENT: phone=${phone}`);
+        } catch (error) {
+          console.error('welcome whatsapp failed', error);
+        }
       });
     }
 
