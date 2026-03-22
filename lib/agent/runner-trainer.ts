@@ -2,7 +2,6 @@ import { ollamaClient, AGENT_MODEL } from './ollama'
 import { toolDefinitions, executeTool } from './tools'
 import { convexMutation, convexQuery } from '@/lib/convex-http'
 import { getTrainerChannelProfileByPhone, getTrainerConfigByPhone } from '@/lib/db/trainer-config'
-import { getTrainerMemory, upsertTrainerMemory } from '@/lib/db/trainer-memory'
 import { generateWeekImage } from '@/lib/calendar/generate-image'
 import {
   addDays,
@@ -16,6 +15,18 @@ import {
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
 const WEEKDAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+
+async function getTrainerMemory(_trainerId?: string | number): Promise<string> {
+  return ''
+}
+
+async function upsertTrainerMemory(
+  _trainerId?: string | number,
+  _key?: string,
+  _value?: string,
+): Promise<void> {
+  // Trainer memory stays disabled until it is migrated off Prisma as well.
+}
 
 type ConvexTrainer = {
   _id: string
@@ -374,7 +385,7 @@ async function handleTrainerOnboarding(trainer: ConvexTrainer, message: string):
   return null
 }
 
-async function analyzeTrainerFeedback(trainerId: number, message: string): Promise<void> {
+async function analyzeTrainerFeedback(trainerId: string | number, message: string): Promise<void> {
   const normalized = message.toLowerCase()
   const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
 
@@ -409,10 +420,9 @@ export async function runAgentTrainer(message: string, from: string): Promise<Tr
     }
   }
 
-  const prismaConfig =
-    typeof trainerProfile.id === 'number' ? await getTrainerConfigByPhone(from) : null
+  const prismaConfig = await getTrainerConfigByPhone(from)
   const now = new Date()
-  const upcomingBookings = prismaConfig ? await getUpcomingTrainerBookings(now) : []
+  const upcomingBookings = prismaConfig ? await getUpcomingTrainerBookings(now, prismaConfig.id) : []
 
   if (prismaConfig && wantsCalendarImage(message)) {
     const imageBuffer = await generateWeekImage(String(prismaConfig.id))

@@ -98,18 +98,13 @@ function drawTextInBox(
 }
 
 export async function generateWeekImage(trainerId: string): Promise<Buffer> {
-  const trainerIdNumber = Number.parseInt(trainerId, 10)
-  if (!Number.isFinite(trainerIdNumber)) {
-    throw new Error('Invalid trainerId')
-  }
-
-  const trainer = await getTrainerConfig(trainerIdNumber)
+  const trainer = await getTrainerConfig(trainerId)
   if (!trainer) {
     throw new Error('Trainer not found')
   }
 
   const now = new Date()
-  const bookings = await getUpcomingTrainerBookings(now)
+  const bookings = await getUpcomingTrainerBookings(now, trainer.id)
   const days = getUpcomingDays(now, bookings)
   const bookingsByDay = new Map<string, typeof bookings>()
 

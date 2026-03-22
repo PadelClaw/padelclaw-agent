@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runAgent } from '@/lib/agent/runner'
 import { runAgentTrainer } from '@/lib/agent/runner-trainer'
-import { isTrainerPhone } from '@/lib/db/trainer-config'
+import { getTrainerChannelProfileByPhone, isTrainerPhone } from '@/lib/db/trainer-config'
+import { convexMutation } from '@/lib/convex-http'
 import { sendWhatsApp, sendWhatsAppImage } from '@/lib/whatsapp-meta'
 import { transcribeAudio } from '@/lib/whatsapp-media'
 
@@ -79,6 +80,8 @@ export async function POST(req: NextRequest) {
 async function processMessage(from: string, messageBody: string) {
   const start = Date.now()
   let responseText: string
+  const trainerProfile = await getTrainerChannelProfileByPhone(from).catch(() => null)
+  const trainerId = trainerProfile?.id === 'default-trainer' ? undefined : trainerProfile?.id
 
   try {
     const trainerMode = await isTrainerPhone(from)
@@ -109,5 +112,19 @@ async function processMessage(from: string, messageBody: string) {
   }
 
   const durationMs = Date.now() - start
+  await Promise.allSettled([
+    convexMutation('messageLogs:createLog', {
+      from,
+      trainerId,
+      body: messageBody,
+      role: 'user',
+    }),
+    convexMutation('messageLogs:createLog', {
+      from,
+      trainerId,
+      body: responseText,
+      role: 'assistant',
+    }),
+  ])
   console.log(`[webhook] from=${from} duration=${durationMs}ms response=${responseText?.slice(0, 50)}`)
 }

@@ -1,6 +1,6 @@
 import ical from 'ical-generator'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
-import { prisma } from '@/lib/prisma'
+import { getUpcomingTrainerBookings } from '@/lib/calendar/schedule'
 
 export const runtime = 'nodejs'
 
@@ -13,25 +13,12 @@ type RouteContext = {
 export async function GET(_: Request, context: RouteContext) {
   const { trainerId } = await context.params
   const normalizedId = trainerId.replace(/\.ics$/i, '')
-  const trainerIdNumber = Number.parseInt(normalizedId, 10)
-
-  if (!Number.isFinite(trainerIdNumber)) {
-    return new Response('Invalid trainerId', { status: 400 })
-  }
-
-  const trainer = await getTrainerConfig(trainerIdNumber)
+  const trainer = await getTrainerConfig(normalizedId)
   if (!trainer) {
     return new Response('Trainer not found', { status: 404 })
   }
 
-  const bookings = await prisma.booking.findMany({
-    where: {
-      status: 'confirmed',
-    },
-    orderBy: {
-      slotStart: 'asc',
-    },
-  })
+  const bookings = await getUpcomingTrainerBookings(new Date(), trainer.id)
 
   const calendar = ical({
     name: `${trainer.name} Trainings`,
@@ -59,7 +46,7 @@ export async function GET(_: Request, context: RouteContext) {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
       'Cache-Control': 'no-store',
-      'Content-Disposition': `inline; filename="${trainerIdNumber}.ics"`,
+      'Content-Disposition': `inline; filename="${normalizedId}.ics"`,
     },
   })
 }

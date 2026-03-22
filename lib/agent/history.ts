@@ -1,43 +1,38 @@
-import { prisma } from '@/lib/prisma'
+import { convexMutation, convexQuery } from '@/lib/convex-http'
+
+type MessageLogEntry = {
+  role: string
+  body: string
+}
+
+type PlayerPayload = {
+  name: string
+}
 
 export async function getHistory(from: string, limit = 10) {
-  const hasBooking = await prisma.booking.findFirst({
-    where: { playerPhone: from, status: 'confirmed' },
-    select: { id: true },
+  const logs = await convexQuery<MessageLogEntry[]>('messageLogs:getRecentLogs', {
+    from,
+    limitHours: 72,
+    limit,
   })
 
-  if (!hasBooking) {
-    return []
-  }
-
-  const logs = await prisma.messageLog.findMany({
-    where: {
-      from,
-      createdAt: {
-        gte: new Date(Date.now() - 72 * 60 * 60 * 1000),
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    select: { role: true, body: true },
-  })
-  return logs.reverse().map(l => ({ role: l.role as 'user' | 'assistant', content: l.body }))
+  return logs.map((log) => ({
+    role: log.role as 'user' | 'assistant',
+    content: log.body,
+  }))
 }
 
 export async function getOrCreatePlayer(phone: string, name?: string): Promise<{ name: string | null }> {
-  if (name) {
-    const player = await prisma.player.upsert({
-      where: { phone },
-      update: { name },
-      create: { phone, name },
-      select: { name: true },
+  if (name?.trim()) {
+    const player = await convexMutation<PlayerPayload>('players:upsertPlayer', {
+      phone,
+      name: name.trim(),
     })
     return { name: player.name }
   }
 
-  const player = await prisma.player.findUnique({
-    where: { phone },
-    select: { name: true },
+  const player = await convexQuery<PlayerPayload | null>('players:getPlayer', {
+    phone,
   })
 
   return { name: player?.name ?? null }

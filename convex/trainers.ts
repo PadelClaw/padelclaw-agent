@@ -67,6 +67,13 @@ export const getByPhone = query({
   },
 });
 
+export const getById = query({
+  args: { trainerId: v.id('trainers') },
+  handler: async (ctx, { trainerId }) => {
+    return await ctx.db.get(trainerId);
+  },
+});
+
 export const getByMagicToken = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {

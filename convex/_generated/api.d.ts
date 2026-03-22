@@ -9,7 +9,9 @@
  */
 
 import type * as bookings from "../bookings.js";
+import type * as messageLogs from "../messageLogs.js";
 import type * as otps from "../otps.js";
+import type * as players from "../players.js";
 import type * as trainers from "../trainers.js";
 import type * as waitlist from "../waitlist.js";
 
@@ -21,7 +23,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   bookings: typeof bookings;
+  messageLogs: typeof messageLogs;
   otps: typeof otps;
+  players: typeof players;
   trainers: typeof trainers;
   waitlist: typeof waitlist;
 }>;

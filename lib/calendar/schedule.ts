@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma'
+import { convexQuery } from '@/lib/convex-http'
 
 export type TrainerScheduleBooking = {
-  id: number
+  id: string
   playerName: string
   playerPhone: string
   slotStart: string
@@ -33,10 +33,9 @@ export function addDays(date: Date, days: number): Date {
 export function getUpcomingDays(now: Date = new Date(), bookings: { slotStart: string }[] = []): Date[] {
   const firstDay = startOfDay(now)
   const allDays = Array.from({ length: DAY_COUNT }, (_, index) => addDays(firstDay, index))
-  // Wochenende nur anzeigen wenn Buchungen vorhanden
-  const bookedDates = new Set(bookings.map(b => getDateKey(new Date(b.slotStart))))
-  return allDays.filter(day => {
-    const dow = day.getDay() // 0=So, 6=Sa
+  const bookedDates = new Set(bookings.map((booking) => getDateKey(new Date(booking.slotStart))))
+  return allDays.filter((day) => {
+    const dow = day.getDay()
     const isWeekend = dow === 0 || dow === 6
     return !isWeekend || bookedDates.has(getDateKey(day))
   })
@@ -69,28 +68,29 @@ export function getBookingEndDate(booking: Pick<TrainerScheduleBooking, 'slotSta
   return end
 }
 
-export async function getUpcomingTrainerBookings(now: Date = new Date()): Promise<TrainerScheduleBooking[]> {
+export async function getUpcomingTrainerBookings(
+  now: Date = new Date(),
+  trainerId?: string,
+): Promise<TrainerScheduleBooking[]> {
   const rangeStart = startOfDay(now)
   const rangeEnd = addDays(rangeStart, DAY_COUNT)
 
-  return prisma.booking.findMany({
-    where: {
-      status: 'confirmed',
-      slotStart: {
-        gte: rangeStart.toISOString(),
-        lt: rangeEnd.toISOString(),
-      },
-    },
-    orderBy: {
-      slotStart: 'asc',
-    },
-    select: {
-      id: true,
-      playerName: true,
-      playerPhone: true,
-      slotStart: true,
-      slotEnd: true,
-      status: true,
-    },
-  })
+  const bookings = trainerId
+    ? await convexQuery<Array<Omit<TrainerScheduleBooking, 'id'> & { _id: string }>>('bookings:getByTrainer', {
+        trainerId,
+      })
+    : []
+
+  return bookings
+    .filter((booking) => booking.status === 'confirmed')
+    .filter((booking) => booking.slotStart >= rangeStart.toISOString() && booking.slotStart < rangeEnd.toISOString())
+    .sort((left, right) => left.slotStart.localeCompare(right.slotStart))
+    .map((booking) => ({
+      id: booking._id,
+      playerName: booking.playerName,
+      playerPhone: booking.playerPhone,
+      slotStart: booking.slotStart,
+      slotEnd: booking.slotEnd,
+      status: booking.status,
+    }))
 }

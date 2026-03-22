@@ -1,14 +1,26 @@
 import type { ChatCompletionTool } from 'openai/resources'
+import { convexMutation, convexQuery } from '@/lib/convex-http'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
-import { prisma } from '@/lib/prisma'
 import { getOrCreatePlayer } from './history'
 import {
-  getNextAvailableSlotOptions,
   createCalendarEvent,
   deleteCalendarEvent,
   isGoogleCalendarEnabled,
   type PreferredTime,
 } from '@/lib/calendar/google-calendar'
+
+type FreeSlot = {
+  label: string
+  start: string
+  end: string
+}
+
+type BookingRecord = {
+  _id: string
+  slotStart: string
+  slotEnd: string
+  calendarEventId?: string
+}
 
 export const toolDefinitions: ChatCompletionTool[] = [
   {
@@ -62,105 +74,86 @@ export async function executeTool(name: string, args: Record<string, string>): P
   const config = await getTrainerConfig()
 
   if (name === 'check_slots') {
-    if (!isGoogleCalendarEnabled()) {
-      // Calculate free slots from DB-based availability (no Google Calendar needed)
-      const pref = (args.time_preference ?? 'any') as PreferredTime
-      const baseDate = args.date_preference ? new Date(args.date_preference) : new Date()
-      const slots: { label: string; start: string }[] = []
-      const daySlots: Record<number, [number, number]> = { 1: [9,19], 2: [9,19], 3: [9,19], 4: [9,19], 5: [9,19], 6: [10,14] } // Mo-Sa
-      const prefRanges: Record<string, [number, number]> = { vormittag: [9,12], nachmittag: [12,17], abend: [17,19], any: [0,23] }
-      const [prefStart, prefEnd] = prefRanges[pref] ?? prefRanges.any
-
-      for (let d = 0; d < 14 && slots.length < 5; d++) {
-        const day = new Date(baseDate)
-        day.setDate(baseDate.getDate() + d)
-        day.setHours(0, 0, 0, 0)
-        const dow = day.getDay() // 0=Sun
-        const range = daySlots[dow]
-        if (!range) continue
-        const [hStart, hEnd] = range
-
-        // Get existing bookings for this day
-        const dayStr = day.toISOString().slice(0, 10)
-        const existing = await prisma.booking.findMany({
-          where: { slotStart: { startsWith: dayStr }, status: 'confirmed' },
-          select: { slotStart: true },
-        })
-        const bookedHours = new Set(existing.map(b => new Date(b.slotStart).getHours()))
-
-        for (let h = Math.max(hStart, prefStart); h < Math.min(hEnd, prefEnd); h++) {
-          if (bookedHours.has(h)) continue
-          if (d === 0 && h <= new Date().getHours()) continue // skip past hours today
-          const slotDate = new Date(day)
-          slotDate.setHours(h, 0, 0, 0)
-          const label = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(slotDate)
-            + `, ${String(h).padStart(2, '0')}:00 Uhr`
-          slots.push({ label, start: slotDate.toISOString() })
-          if (slots.length >= 5) break
-        }
-      }
-      return JSON.stringify(slots.length ? slots : [{ error: 'Keine freien Slots in den nächsten 14 Tagen' }])
-    }
     const pref = (args.time_preference ?? 'any') as PreferredTime
-    const startDate = args.date_preference ? new Date(args.date_preference) : new Date()
-    const slots = await getNextAvailableSlotOptions(config.calendarId, pref, startDate)
-    return JSON.stringify(slots.slice(0, 5))
+    const targetDate = args.date_preference ?? args.date ?? new Date().toISOString()
+    const slots = await convexQuery<FreeSlot[]>('bookings:getFreeSlots', {
+      date: targetDate,
+      trainerPhone: config.trainerPhone,
+      timePreference: pref,
+    })
+
+    return JSON.stringify(slots.length ? slots : [{ error: 'Keine freien Slots in den nächsten 14 Tagen' }])
   }
 
   if (name === 'create_booking') {
-    const slotEnd = new Date(new Date(args.slot_start).getTime() + 3600000).toISOString()
+    const slotStart = args.slot_start
+    const slotEnd = new Date(new Date(slotStart).getTime() + 3600000).toISOString()
     const playerPhone = args.player_phone || 'via-whatsapp'
 
-    // Prüfe Doppelbuchung
-    const conflict = await prisma.booking.findFirst({
-      where: { slotStart: args.slot_start, status: 'confirmed' }
+    const conflict = await convexQuery<BookingRecord | null>('bookings:findConflict', {
+      slotStart,
     })
     if (conflict) {
-      const date = new Date(args.slot_start)
+      const date = new Date(slotStart)
       const dateLabel = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(date)
       const timeLabel = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date)
       return JSON.stringify({ error: 'slot_taken', dateLabel, timeLabel })
     }
 
-    // DB first — if DB fails, no orphaned calendar event
-    const booking = await prisma.booking.create({
-      data: { playerName: args.player_name, playerPhone: playerPhone, slotStart: args.slot_start, slotEnd, calendarEventId: null, status: 'confirmed' }
+    const bookingId = await convexMutation<string>('bookings:createBooking', {
+      trainerId: config.id === 'default-trainer' ? undefined : config.id,
+      playerName: args.player_name,
+      playerPhone,
+      slotStart,
+      slotEnd,
     })
     await getOrCreatePlayer(playerPhone, args.player_name)
 
-    // Calendar second — if it fails, booking still exists (calendarEventId stays null)
     let eventId: string | null = null
     if (isGoogleCalendarEnabled()) {
       try {
         eventId = await createCalendarEvent({
           summary: `🎾 Training: ${args.player_name} (${playerPhone})`,
-          startDateTime: args.slot_start,
+          startDateTime: slotStart,
           endDateTime: slotEnd,
           description: `Spieler: ${args.player_name}\nTelefon: ${playerPhone}\nBuchung via PadelClaw Agent`,
           location: config.location,
           calendarId: config.calendarId,
         })
         if (eventId) {
-          await prisma.booking.update({ where: { id: booking.id }, data: { calendarEventId: eventId } })
+          await convexMutation('bookings:updateCalendarEventId', {
+            bookingId,
+            calendarEventId: eventId,
+          })
         }
       } catch (_) {
-        // Calendar failed — booking still valid, calendarEventId remains null
+        // Calendar failed. The booking still exists in Convex.
       }
     }
-    const date = new Date(args.slot_start)
+
+    const date = new Date(slotStart)
     const dateLabel = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
     const timeLabel = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date)
     return JSON.stringify({ success: true, eventId, dateLabel, timeLabel, location: config.location })
   }
 
   if (name === 'cancel_booking') {
-    const booking = await prisma.booking.findFirst({
-      where: { playerPhone: args.player_phone, status: 'confirmed' },
-      orderBy: { createdAt: 'desc' },
+    const booking = await convexQuery<BookingRecord | null>('bookings:findByPhone', {
+      playerPhone: args.player_phone,
+      status: 'confirmed',
     })
-    if (!booking) return JSON.stringify({ error: 'Keine aktive Buchung gefunden' })
-    if (booking.calendarEventId && isGoogleCalendarEnabled()) await deleteCalendarEvent(booking.calendarEventId)
-    await prisma.booking.update({ where: { id: booking.id }, data: { status: 'cancelled' } })
+    if (!booking) {
+      return JSON.stringify({ error: 'Keine aktive Buchung gefunden' })
+    }
+
+    if (booking.calendarEventId && isGoogleCalendarEnabled()) {
+      await deleteCalendarEvent(booking.calendarEventId)
+    }
+
+    await convexMutation('bookings:cancelBooking', {
+      bookingId: booking._id,
+    })
+
     const dateLabel = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' }).format(new Date(booking.slotStart))
     return JSON.stringify({ success: true, dateLabel })
   }
