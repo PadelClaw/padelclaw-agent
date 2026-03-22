@@ -1,4 +1,4 @@
-import { after, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createSessionToken } from '@/lib/auth-session';
 import { convexMutation, convexQuery } from '@/lib/convex-http';
 import { sendWhatsApp } from '@/lib/whatsapp-meta';
@@ -104,14 +104,12 @@ export async function POST(request: Request) {
     console.log(`WELCOME_ATTEMPT: phone=${phone} shouldSend=${shouldSendWelcomeMessage} trainerId=${trainerId}`);
 
     if (trainerId && shouldSendWelcomeMessage) {
-      after(async () => {
-        try {
-          await sendWhatsApp(phone, buildWelcomeMessage(name));
-          console.log(`WELCOME_SENT: phone=${phone}`);
-        } catch (error) {
-          console.error('welcome whatsapp failed', error);
-        }
-      });
+      try {
+        await sendWhatsApp(phone, buildWelcomeMessage(name));
+        console.log(`WELCOME_SENT: phone=${phone}`);
+      } catch (error) {
+        console.error('welcome whatsapp failed', error);
+      }
     }
 
     return response;
