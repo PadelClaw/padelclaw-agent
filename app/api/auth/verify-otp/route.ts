@@ -57,10 +57,20 @@ export async function POST(request: Request) {
     let shouldSendWelcomeMessage = false;
 
     if (name && email) {
-      const [existingTrainerByPhone, existingTrainerByEmail] = await Promise.all([
-        convexQuery<{ _id: string } | null>('trainers:getByPhone', { phone }),
-        convexQuery<{ _id: string } | null>('trainers:getByEmail', { email }),
-      ]);
+      // Check if trainer already exists — fail-open so OTP still succeeds
+      let existingTrainerByPhone: { _id: string } | null = null;
+      let existingTrainerByEmail: { _id: string } | null = null;
+
+      try {
+        [existingTrainerByPhone, existingTrainerByEmail] = await Promise.all([
+          convexQuery<{ _id: string } | null>('trainers:getByPhone', { phone }),
+          convexQuery<{ _id: string } | null>('trainers:getByEmail', { email }),
+        ]);
+      } catch (lookupError) {
+        console.error('trainer lookup failed, will send welcome as fallback', lookupError);
+        // fallback: treat as new trainer → send welcome
+      }
+
       trainerId = await convexMutation<string>('trainers:ensureTrainer', {
         name,
         email,
@@ -71,6 +81,18 @@ export async function POST(request: Request) {
     } else {
       const existingTrainer = await convexQuery<{ _id: string } | null>('trainers:getByPhone', { phone });
       trainerId = existingTrainer?._id ?? null;
+    }
+
+    console.log(`WELCOME_ATTEMPT: phone=${phone} shouldSend=${shouldSendWelcomeMessage} trainerId=${trainerId}`);
+
+    // Send welcome BEFORE building the response so it completes before the function exits
+    if (trainerId && shouldSendWelcomeMessage) {
+      try {
+        await sendWhatsApp(phone, buildWelcomeMessage(name));
+        console.log(`WELCOME_SENT: phone=${phone}`);
+      } catch (error) {
+        console.error('welcome whatsapp failed', error);
+      }
     }
 
     const response = NextResponse.json({ success: true, trainerId: trainerId ?? undefined });
@@ -85,12 +107,6 @@ export async function POST(request: Request) {
         secure: process.env.NODE_ENV === 'production',
         path: '/',
         maxAge: 60 * 60 * 24 * 7,
-      });
-    }
-
-    if (trainerId && shouldSendWelcomeMessage) {
-      sendWhatsApp(phone, buildWelcomeMessage(name)).catch((error) => {
-        console.error('welcome whatsapp failed', error);
       });
     }
 
