@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     });
 
     await resend.emails.send({
-      from: 'PadelClaw <onboarding@resend.dev>',
+      from: 'PadelClaw <noreply@padelclaw.ai>',
       to: email,
       subject: 'Dein PadelClaw Code',
       html: `<p>Dein Code: <strong>${code}</strong> 🎾</p><p>Gültig für 10 Minuten.</p>`,
