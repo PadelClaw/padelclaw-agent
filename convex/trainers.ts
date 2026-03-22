@@ -148,7 +148,7 @@ export const ensureTrainer = mutation({
       name: args.name,
       plan: args.plan ?? 'free',
       personality: args.personality ?? 'friendly',
-      onboardingStep: 'location',
+      onboardingStep: 'intro',
       region: undefined,
       club: undefined,
       location: undefined,

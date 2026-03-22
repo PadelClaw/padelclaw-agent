@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSessionToken } from '@/lib/auth-session';
 import { convexMutation, convexQuery } from '@/lib/convex-http';
-import { sendWhatsApp } from '@/lib/whatsapp-meta';
+import { sendWhatsApp, sendWhatsAppTemplate } from '@/lib/whatsapp-meta';
 
 export const runtime = 'nodejs';
 
@@ -23,7 +23,7 @@ function normalizeEmail(email: string) {
 }
 
 function buildWelcomeMessage(name: string) {
-  return `Hallo ${name}! 👋 Willkommen bei PadelClaw 🎾 Ich bin dein persönlicher Agent — ich stelle dir kurz ein paar Fragen um alles einzurichten. Wie heißt dein Club oder deine Trainings-Location?`;
+  return `Hallo ${name}! 👋 Willkommen bei PadelClaw 🎾 Ich bin dein persönlicher Agent. Ich richte jetzt kurz alles mit dir ein. Erzähl mir zum Start: Wie lange coachst du schon und wie würdest du deinen Stil beschreiben?`;
 }
 
 export async function POST(request: Request) {
@@ -105,10 +105,17 @@ export async function POST(request: Request) {
 
     if (trainerId && shouldSendWelcomeMessage) {
       try {
-        await sendWhatsApp(phone, buildWelcomeMessage(name));
-        console.log(`WELCOME_SENT: phone=${phone}`);
+        await sendWhatsAppTemplate(phone, 'padelclaw_welcome', [name]);
+        console.log(`WELCOME_TEMPLATE_SENT: phone=${phone}`);
       } catch (error) {
-        console.error('welcome whatsapp failed', error);
+        console.error('welcome template failed, falling back to text', error);
+
+        try {
+          await sendWhatsApp(phone, buildWelcomeMessage(name));
+          console.log(`WELCOME_FALLBACK_SENT: phone=${phone}`);
+        } catch (fallbackError) {
+          console.error('welcome whatsapp fallback failed', fallbackError);
+        }
       }
     }
 

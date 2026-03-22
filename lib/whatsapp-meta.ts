@@ -52,6 +52,48 @@ export async function sendWhatsApp(to: string, body: string) {
   return response.json()
 }
 
+export async function sendWhatsAppTemplate(to: string, templateName: string, variables: string[]) {
+  const accessToken = process.env.META_ACCESS_TOKEN
+  const phoneNumberId = process.env.META_PHONE_NUMBER_ID
+
+  if (!accessToken || !phoneNumberId) {
+    throw new Error('Missing META credentials')
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${graphApiVersion}/${phoneNumberId}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: normalizeRecipient(to),
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: 'de' },
+          components: [
+            {
+              type: 'body',
+              parameters: variables.map((value) => ({ type: 'text', text: value })),
+            },
+          ],
+        },
+      }),
+    },
+  )
+
+  if (!response.ok) {
+    const err = await response.text()
+    throw new Error(`WhatsApp template send failed (${response.status}): ${err}`)
+  }
+
+  return response.json()
+}
+
 export async function sendWhatsAppImage(to: string, imageBuffer: Buffer, caption?: string) {
   const accessToken = process.env.META_ACCESS_TOKEN
   const phoneNumberId = process.env.META_PHONE_NUMBER_ID

@@ -226,11 +226,45 @@ function parsePackagePrices(message: string): { pricePackage5: number; pricePack
   return null
 }
 
+function isAffirmativeReply(message: string): boolean {
+  const normalized = message.trim().toLowerCase()
+  return ['ja', 'jap', 'yes', 'klar', 'gern', 'gerne', 'okay', 'ok', 'bitte'].some((value) =>
+    normalized === value || normalized.startsWith(`${value} `),
+  )
+}
+
+function isNegativeReply(message: string): boolean {
+  const normalized = message.trim().toLowerCase()
+  return ['nein', 'nee', 'no', 'nö', 'nope', 'nicht nötig', 'später'].some((value) =>
+    normalized === value || normalized.startsWith(`${value} `),
+  )
+}
+
 async function handleTrainerOnboarding(trainer: ConvexTrainer, message: string): Promise<TrainerAgentResponse | null> {
   const step = trainer.onboardingStep
 
   if (!step || step === 'done') {
     return null
+  }
+
+  if (step === 'intro') {
+    const intro = message.trim()
+    if (!intro) {
+      return {
+        type: 'text',
+        body: 'Ich bin dein PadelClaw Agent 🎾 Bevor wir starten: Wie lange coachst du schon und wie würdest du deinen Stil beschreiben?',
+      }
+    }
+
+    await convexMutation<{ success: boolean }>('trainers:updateOnboarding', {
+      trainerId: trainer._id,
+      onboardingStep: 'location',
+    })
+
+    return {
+      type: 'text',
+      body: 'Perfekt. Wie heißt dein Club oder deine Trainings-Location?',
+    }
   }
 
   if (step === 'location') {
@@ -288,12 +322,52 @@ async function handleTrainerOnboarding(trainer: ConvexTrainer, message: string):
       trainerId: trainer._id,
       pricePackage5: prices.pricePackage5,
       pricePackage10: prices.pricePackage10,
-      onboardingStep: 'done',
+      onboardingStep: 'feature_intro',
     })
 
     return {
       type: 'text',
-      body: 'Perfekt! 🎾 Dein Agent ist jetzt bereit. Deine Spieler können ab sofort über WhatsApp buchen!',
+      body: 'Stark. Möchtest du, dass ich dir erkläre was ich alles kann? Antworte einfach mit Ja oder Nein.',
+    }
+  }
+
+  if (step === 'feature_intro') {
+    if (!message.trim()) {
+      return {
+        type: 'text',
+        body: 'Möchtest du, dass ich dir kurz erkläre was ich alles kann? Antworte einfach mit Ja oder Nein.',
+      }
+    }
+
+    await convexMutation<{ success: boolean }>('trainers:updateOnboarding', {
+      trainerId: trainer._id,
+      onboardingStep: 'done',
+    })
+
+    if (isAffirmativeReply(message)) {
+      return {
+        type: 'text',
+        body:
+          'Perfekt. Kurz zu meinen Features:\n' +
+          '• Ich beantworte WhatsApp-Nachrichten deiner Spieler.\n' +
+          '• Ich prüfe freie Slots und organisiere Buchungen.\n' +
+          '• Ich kann dir Tages-, Morgen- und Wochenübersichten schicken.\n' +
+          '• Auf Wunsch sende ich dir auch Kalender-Link oder Wochenbild.\n\n' +
+          'Dein Agent ist jetzt bereit. Deine Spieler können ab sofort über WhatsApp buchen!',
+      }
+    }
+
+    if (isNegativeReply(message)) {
+      return {
+        type: 'text',
+        body: 'Perfekt! 🎾 Dein Agent ist jetzt bereit. Deine Spieler können ab sofort über WhatsApp buchen!',
+      }
+    }
+
+    return {
+      type: 'text',
+      body:
+        'Ich werte das mal als Nein. Dein Agent ist jetzt bereit. Wenn du später eine Übersicht willst, schreib einfach "Was kannst du?".',
     }
   }
 
