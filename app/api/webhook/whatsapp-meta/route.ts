@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runAgent } from '@/lib/agent/runner'
 import { runAgentTrainer } from '@/lib/agent/runner-trainer'
-import { prisma } from '@/lib/prisma'
 import { isTrainerPhone } from '@/lib/db/trainer-config'
 import { sendWhatsApp, sendWhatsAppImage } from '@/lib/whatsapp-meta'
 import { transcribeAudio } from '@/lib/whatsapp-media'
@@ -110,11 +109,5 @@ async function processMessage(from: string, messageBody: string) {
   }
 
   const durationMs = Date.now() - start
-
-  await prisma.messageLog.createMany({
-    data: [
-      { from, body: messageBody, role: 'user', durationMs: 0 },
-      { from, body: responseText, role: 'assistant', durationMs },
-    ],
-  })
+  console.log(`[webhook] from=${from} duration=${durationMs}ms response=${responseText?.slice(0, 50)}`)
 }
