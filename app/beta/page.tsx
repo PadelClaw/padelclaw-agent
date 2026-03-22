@@ -3,6 +3,27 @@
 import type { ClipboardEvent, KeyboardEvent } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
+const TOTAL_STEPS = 5;
+const PERSONALITY_OPTIONS = [
+  {
+    value: 'professional',
+    title: '🎯 Professional',
+    description: 'Klar, sachlich und effizient. Für Trainer, die einen geradlinigen Stil wollen.',
+  },
+  {
+    value: 'friendly',
+    title: '🤝 Friendly Coach',
+    description: 'Warm, locker und nahbar. Der beste Default für eine natürliche WhatsApp-Kommunikation.',
+  },
+  {
+    value: 'motivator',
+    title: '💪 Motivator',
+    description: 'Energetisch und sporty. Mehr Drive und mehr Padel-Vibe in jeder Antwort.',
+  },
+] as const;
+
+type Personality = (typeof PERSONALITY_OPTIONS)[number]['value'];
+
 function normalizePhone(prefix: string, phone: string) {
   const digits = `${prefix}${phone}`.replace(/\D/g, '');
   return digits ? `+${digits}` : '';
@@ -12,6 +33,7 @@ export default function BetaPage() {
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
+  const [personality, setPersonality] = useState<Personality>('friendly');
   const [region, setRegion] = useState('');
   const [club, setClub] = useState('');
   const [email, setEmail] = useState('');
@@ -27,7 +49,7 @@ export default function BetaPage() {
     [countryCode, whatsAppNumber],
   );
   const otpCode = useMemo(() => otpDigits.join(''), [otpDigits]);
-  const progress = (step / 4) * 100;
+  const progress = (step / TOTAL_STEPS) * 100;
 
   function validateProfile() {
     if (!name.trim()) {
@@ -99,6 +121,9 @@ export default function BetaPage() {
         body: JSON.stringify({
           phone,
           code: otpCode,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          personality,
         }),
       });
 
@@ -131,7 +156,7 @@ export default function BetaPage() {
         throw new Error(onboardingResult.error || 'Onboarding konnte nicht gespeichert werden.');
       }
 
-      setStep(4);
+      setStep(5);
     } catch (verifyError) {
       setError(
         verifyError instanceof Error ? verifyError.message : 'Beta-Onboarding konnte nicht abgeschlossen werden.',
@@ -189,6 +214,7 @@ export default function BetaPage() {
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-zinc-300 sm:text-lg">
                 Ein eigener Beta-Flow für Trainer: Plan wählen, Kurzprofil ausfüllen, Nummer verifizieren und sofort starten.
+                Danach übernimmt dein Agent das Setup direkt auf WhatsApp.
               </p>
             </div>
 
@@ -196,7 +222,7 @@ export default function BetaPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.2em] text-lime-300">Flow</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">4 schnelle Schritte</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">5 schnelle Schritte</p>
                 </div>
                 <span className="rounded-full border border-lime-400/30 bg-lime-400/10 px-3 py-1 text-xs font-semibold text-lime-200">
                   Beta only
@@ -209,7 +235,7 @@ export default function BetaPage() {
                 />
               </div>
               <div className="mt-4 flex items-center justify-between text-sm text-zinc-400">
-                <span>Schritt {step} von 4</span>
+                <span>Schritt {step} von {TOTAL_STEPS}</span>
                 <span>{Math.round(progress)}%</span>
               </div>
             </div>
@@ -236,8 +262,8 @@ export default function BetaPage() {
                   type="button"
                   onClick={() => {
                     setError('');
-                    setStep(2);
-                  }}
+                      setStep(2);
+                    }}
                   className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-base font-semibold text-slate-950 transition hover:bg-lime-300"
                 >
                   Beta starten →
@@ -248,6 +274,69 @@ export default function BetaPage() {
             {step === 2 ? (
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 2</p>
+                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Wähle deinen Agent-Stil</h2>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  So klingt dein Assistent später gegenüber Spielern. Du kannst das später jederzeit anpassen.
+                </p>
+
+                <div className="mt-8 grid gap-4">
+                  {PERSONALITY_OPTIONS.map((option) => {
+                    const isActive = personality === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setPersonality(option.value)}
+                        className={`rounded-[1.5rem] border px-5 py-5 text-left transition ${
+                          isActive
+                            ? 'border-lime-400 bg-lime-400/10 shadow-[0_20px_60px_-40px_rgba(163,230,53,0.9)]'
+                            : 'border-white/10 bg-white/[0.03] hover:border-lime-400/30 hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-lg font-semibold text-white">{option.title}</p>
+                            <p className="mt-2 text-sm leading-6 text-zinc-300">{option.description}</p>
+                          </div>
+                          <div
+                            className={`mt-1 h-5 w-5 rounded-full border ${
+                              isActive ? 'border-lime-300 bg-lime-300' : 'border-white/25'
+                            }`}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError('');
+                      setStep(1);
+                    }}
+                    className="inline-flex flex-1 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 transition hover:bg-white/10"
+                  >
+                    Zurück
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError('');
+                      setStep(3);
+                    }}
+                    className="inline-flex flex-1 items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-lime-300"
+                  >
+                    Weiter →
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {step === 3 ? (
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 3</p>
                 <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Dein Profil</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">Schnell ausgefüllt, damit dein Agent direkt loslegen kann.</p>
 
@@ -278,7 +367,7 @@ export default function BetaPage() {
                     type="button"
                     onClick={() => {
                       setError('');
-                      setStep(1);
+                      setStep(2);
                     }}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 transition hover:bg-white/10"
                   >
@@ -294,7 +383,7 @@ export default function BetaPage() {
                       setError('');
                       setOtpRequested(false);
                       setOtpDigits(['', '', '', '', '', '']);
-                      setStep(3);
+                      setStep(4);
                     }}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-lime-300"
                   >
@@ -304,9 +393,9 @@ export default function BetaPage() {
               </div>
             ) : null}
 
-            {step === 3 ? (
+            {step === 4 ? (
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 3</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 4</p>
                 <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Verifiziere deine E-Mail</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
                   Wir senden dir einen Code per E-Mail.
@@ -393,15 +482,15 @@ export default function BetaPage() {
               </div>
             ) : null}
 
-            {step === 4 ? (
+            {step === 5 ? (
               <div className="flex min-h-[420px] flex-col justify-center">
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 4</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 5</p>
                 <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">🎾 Dein Agent ist aktiv!</h2>
                 <p className="mt-4 text-base leading-7 text-zinc-300">
-                  Schau auf dein Handy — dein PadelClaw-Assistent hat sich gerade per WhatsApp gemeldet.
+                  Schau auf dein Handy — dein PadelClaw-Assistent hat sich gerade per WhatsApp gemeldet und startet jetzt dein Setup.
                 </p>
                 <div className="mt-8 rounded-[1.75rem] border border-lime-400/20 bg-lime-400/10 p-5 text-sm leading-6 text-lime-100">
-                  Kein Dashboard nötig. Alles Weitere läuft direkt über WhatsApp.
+                  Kein Dashboard nötig. Club, Preise und Startkonfiguration richtest du jetzt direkt im Chat ein.
                 </div>
               </div>
             ) : null}

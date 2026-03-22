@@ -6,15 +6,31 @@ import { getHistory, getOrCreatePlayer } from './history'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
+function loadAgentSoul(personality?: string | null) {
+  const fallbackPath = path.join(process.cwd(), 'agents/AGENT_SOUL.md')
+  const legacySoulPath = path.join(process.cwd(), 'agents/fernando/SOUL.md')
+  const templatePath = personality
+    ? path.join(process.cwd(), 'agents/templates', `${personality}.md`)
+    : null
+
+  if (templatePath && fs.existsSync(templatePath)) {
+    return fs.readFileSync(templatePath, 'utf-8')
+  }
+
+  if (fs.existsSync(fallbackPath)) {
+    return fs.readFileSync(fallbackPath, 'utf-8')
+  }
+
+  if (fs.existsSync(legacySoulPath)) {
+    return fs.readFileSync(legacySoulPath, 'utf-8')
+  }
+
+  return 'Du bist ein hilfreicher Padel-Buchungsassistent.'
+}
+
 export async function runAgent(userMessage: string, from: string): Promise<string> {
   const config = await getTrainerConfig()
-  const soulPath = path.join(process.cwd(), 'agents/AGENT_SOUL.md')
-  const legacySoulPath = path.join(process.cwd(), 'agents/fernando/SOUL.md')
-  const rawSoul = fs.existsSync(soulPath)
-    ? fs.readFileSync(soulPath, 'utf-8')
-    : fs.existsSync(legacySoulPath)
-      ? fs.readFileSync(legacySoulPath, 'utf-8')
-      : 'Du bist ein hilfreicher Padel-Buchungsassistent.'
+  const rawSoul = loadAgentSoul((config as typeof config & { personality?: string | null }).personality)
   const soul = rawSoul
     .replaceAll('{{TRAINER_NAME}}', config.name)
     .replaceAll('{{PRICE_SINGLE}}', String(config.priceSingle))

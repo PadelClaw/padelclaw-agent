@@ -1,6 +1,7 @@
 import { ollamaClient, AGENT_MODEL } from './ollama'
 import { toolDefinitions, executeTool } from './tools'
-import { getTrainerConfig } from '@/lib/db/trainer-config'
+import { convexMutation, convexQuery } from '@/lib/convex-http'
+import { getTrainerChannelProfileByPhone, getTrainerConfigByPhone } from '@/lib/db/trainer-config'
 import { getTrainerMemory, upsertTrainerMemory } from '@/lib/db/trainer-memory'
 import { generateWeekImage } from '@/lib/calendar/generate-image'
 import {
@@ -15,6 +16,19 @@ import {
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
 const WEEKDAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+
+type ConvexTrainer = {
+  _id: string
+  name: string
+  phone: string
+  location?: string
+  region?: string
+  club?: string
+  priceSingle?: number
+  pricePackage5?: number
+  pricePackage10?: number
+  onboardingStep?: string
+}
 
 export type TrainerAgentResponse =
   | { type: 'text'; body: string }
@@ -151,6 +165,141 @@ function wantsCalendarLink(message: string): boolean {
   return keywords.some((keyword) => normalized.includes(keyword))
 }
 
+function normalizeConvexPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  return digits ? `+${digits}` : ''
+}
+
+async function getConvexTrainerByPhone(phone: string): Promise<ConvexTrainer | null> {
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) {
+    return null
+  }
+
+  for (const candidate of [normalizeConvexPhone(phone), digits]) {
+    if (!candidate) {
+      continue
+    }
+
+    const trainer = await convexQuery<ConvexTrainer | null>('trainers:getByPhone', {
+      phone: candidate,
+    })
+
+    if (trainer) {
+      return trainer
+    }
+  }
+
+  return null
+}
+
+function parseEuroAmount(message: string): number | null {
+  const match = message.replace(',', '.').match(/(\d{1,4})(?:[.,]\d{1,2})?/)
+  if (!match) {
+    return null
+  }
+
+  const amount = Number.parseInt(match[1] ?? '', 10)
+  return Number.isFinite(amount) && amount > 0 ? amount : null
+}
+
+function parsePackagePrices(message: string): { pricePackage5: number; pricePackage10: number } | null {
+  const normalized = message.toLowerCase().replace(/€/g, ' ')
+  const price5Match = normalized.match(/5(?:er)?(?:[\s-]*(?:karte|paket))?[^\d]{0,12}(\d{1,4})/)
+  const price10Match = normalized.match(/10(?:er)?(?:[\s-]*(?:karte|paket))?[^\d]{0,12}(\d{1,4})/)
+
+  const price5 = price5Match ? Number.parseInt(price5Match[1] ?? '', 10) : null
+  const price10 = price10Match ? Number.parseInt(price10Match[1] ?? '', 10) : null
+
+  if (price5 && price10) {
+    return { pricePackage5: price5, pricePackage10: price10 }
+  }
+
+  const allNumbers = Array.from(normalized.matchAll(/\d{2,4}/g)).map((match) => Number.parseInt(match[0], 10))
+  if (allNumbers.length >= 2) {
+    return {
+      pricePackage5: allNumbers[0],
+      pricePackage10: allNumbers[1],
+    }
+  }
+
+  return null
+}
+
+async function handleTrainerOnboarding(trainer: ConvexTrainer, message: string): Promise<TrainerAgentResponse | null> {
+  const step = trainer.onboardingStep
+
+  if (!step || step === 'done') {
+    return null
+  }
+
+  if (step === 'location') {
+    const location = message.trim()
+    if (!location) {
+      return {
+        type: 'text',
+        body: 'Wie heißt dein Club oder deine Trainings-Location?',
+      }
+    }
+
+    await convexMutation<{ success: boolean }>('trainers:updateOnboarding', {
+      trainerId: trainer._id,
+      location,
+      onboardingStep: 'price_single',
+    })
+
+    return {
+      type: 'text',
+      body: 'Perfekt. Was kostet eine Einzelstunde bei dir?',
+    }
+  }
+
+  if (step === 'price_single') {
+    const priceSingle = parseEuroAmount(message)
+    if (!priceSingle) {
+      return {
+        type: 'text',
+        body: 'Was kostet eine Einzelstunde bei dir? Schreib einfach zum Beispiel 65.',
+      }
+    }
+
+    await convexMutation<{ success: boolean }>('trainers:updateOnboarding', {
+      trainerId: trainer._id,
+      priceSingle,
+      onboardingStep: 'price_packages',
+    })
+
+    return {
+      type: 'text',
+      body: 'Top. Welche Paketpreise hast du fuer 5er- und 10er-Karten? Schreib zum Beispiel: 5er 300, 10er 550.',
+    }
+  }
+
+  if (step === 'price_packages') {
+    const prices = parsePackagePrices(message)
+    if (!prices) {
+      return {
+        type: 'text',
+        body: 'Bitte schick mir beide Paketpreise, zum Beispiel: 5er 300, 10er 550.',
+      }
+    }
+
+    await convexMutation<{ success: boolean }>('trainers:updateOnboarding', {
+      trainerId: trainer._id,
+      pricePackage5: prices.pricePackage5,
+      pricePackage10: prices.pricePackage10,
+      onboardingStep: 'done',
+    })
+
+    return {
+      type: 'text',
+      body: 'Perfekt! 🎾 Dein Agent ist jetzt bereit. Deine Spieler können ab sofort über WhatsApp buchen!',
+    }
+  }
+
+  return null
+}
+
 async function analyzeTrainerFeedback(trainerId: number, message: string): Promise<void> {
   const normalized = message.toLowerCase()
   const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
@@ -173,45 +322,58 @@ async function analyzeTrainerFeedback(trainerId: number, message: string): Promi
 }
 
 export async function runAgentTrainer(message: string, from: string): Promise<TrainerAgentResponse> {
-  const config = await getTrainerConfig()
-  if (!config) {
+  const trainerProfile = await getTrainerChannelProfileByPhone(from)
+  if (!trainerProfile) {
     return { type: 'text', body: 'Trainer-Konfiguration nicht gefunden.' }
   }
 
-  const now = new Date()
-  const upcomingBookings = await getUpcomingTrainerBookings(now)
-
-  if (wantsCalendarImage(message)) {
-    const imageBuffer = await generateWeekImage(String(config.id))
-    return {
-      type: 'image',
-      imageBase64: imageBuffer.toString('base64'),
-      caption: `KW ${String(getIsoWeek(now)).padStart(2, '0')} — ${config.name}`,
+  const convexTrainer = await getConvexTrainerByPhone(from)
+  if (convexTrainer?.onboardingStep && convexTrainer.onboardingStep !== 'done') {
+    const onboardingResponse = await handleTrainerOnboarding(convexTrainer, message)
+    if (onboardingResponse) {
+      return onboardingResponse
     }
   }
 
-  if (wantsCalendarLink(message)) {
+  const prismaConfig =
+    typeof trainerProfile.id === 'number' ? await getTrainerConfigByPhone(from) : null
+  const now = new Date()
+  const upcomingBookings = prismaConfig ? await getUpcomingTrainerBookings(now) : []
+
+  if (prismaConfig && wantsCalendarImage(message)) {
+    const imageBuffer = await generateWeekImage(String(prismaConfig.id))
+    return {
+      type: 'image',
+      imageBase64: imageBuffer.toString('base64'),
+      caption: `KW ${String(getIsoWeek(now)).padStart(2, '0')} — ${trainerProfile.name}`,
+    }
+  }
+
+  if (prismaConfig && wantsCalendarLink(message)) {
     return {
       type: 'text',
       body:
         `Hier ist dein Kalender-Link zum Importieren:\n` +
-        `https://meniscoid-lena-superofficiously.ngrok-free.dev/api/calendar/${config.id}.ics\n\n` +
+        `https://meniscoid-lena-superofficiously.ngrok-free.dev/api/calendar/${prismaConfig.id}.ics\n\n` +
         `Einfach in Apple Calendar, Google Calendar oder Outlook importieren!`,
     }
   }
 
   const overviewIntent = detectTrainerOverviewIntent(message)
   if (overviewIntent) {
-    return { type: 'text', body: formatBookingsForWhatsApp(upcomingBookings, overviewIntent, now) }
+    return {
+      type: 'text',
+      body: formatBookingsForWhatsApp(upcomingBookings, overviewIntent, now, trainerProfile.location),
+    }
   }
 
-  const trainerMemory = await getTrainerMemory(config.id)
+  const trainerMemory = prismaConfig ? await getTrainerMemory(prismaConfig.id) : ''
 
   const memorySection = trainerMemory
-    ? `\n\n## Was ich über ${config.name} weiß\n${trainerMemory}`
+    ? `\n\n## Was ich über ${trainerProfile.name} weiß\n${trainerMemory}`
     : ''
 
-  const systemPrompt = `Du bist der digitale Assistent von Coach ${config.name}. Du kommunizierst DIREKT mit dem Trainer.
+  const systemPrompt = `Du bist der digitale Assistent von Coach ${trainerProfile.name}. Du kommunizierst DIREKT mit dem Trainer.
 
 Beim ALLERERSTEN Kontakt des Tages (wenn keine History vorhanden): Begrüße mit 'Hallo Fernando 👋'
 Danach: Kein 'Hallo' mehr — direkt zur Antwort. Natürliche Konversation wie mit einem Kollegen.
@@ -219,10 +381,10 @@ Antworte auf Deutsch, kurz und direkt.
 WICHTIG: Stelle am Ende KEINE Rückfragen wie "Möchtest du weitere Termine sehen?" — der Trainer weiß selbst was er braucht. Nur antworten was gefragt wurde.
 
 ## Trainer-Kontext
-- Trainer: ${config.name}
-- Telefonnummer des Trainers: ${config.trainerPhone ?? process.env.TRAINER_PHONE ?? from}
-- Location: ${config.location}
-- Preise: ${config.priceSingle}€/Stunde | 5er-Paket: ${config.pricePackage5}€ | 10er-Paket: ${config.pricePackage10}€
+- Trainer: ${trainerProfile.name}
+- Telefonnummer des Trainers: ${trainerProfile.trainerPhone ?? process.env.TRAINER_PHONE ?? from}
+- Location: ${trainerProfile.location}
+- Preise: ${trainerProfile.priceSingle}€/Stunde | 5er-Paket: ${trainerProfile.pricePackage5}€ | 10er-Paket: ${trainerProfile.pricePackage10}€
 - Aktuelles Datum/Zeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
 
 ## Buchungen der nächsten 7 Tage
@@ -237,7 +399,9 @@ ${formatUpcomingBookings(upcomingBookings)}${memorySection}
 - Keine Konversationshistorie verwenden. Behandle jede Nachricht eigenständig.`
 
   // Analyze trainer message for feedback/preferences (fire-and-forget)
-  analyzeTrainerFeedback(config.id, message).catch(() => {})
+  if (prismaConfig) {
+    analyzeTrainerFeedback(prismaConfig.id, message).catch(() => {})
+  }
 
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },

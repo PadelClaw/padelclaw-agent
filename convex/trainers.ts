@@ -107,6 +107,7 @@ export const ensureTrainer = mutation({
     phone: v.string(),
     name: v.string(),
     plan: v.optional(v.string()),
+    personality: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const trainerByPhone = await ctx.db
@@ -119,6 +120,7 @@ export const ensureTrainer = mutation({
         email: args.email,
         name: args.name,
         verified: true,
+        personality: args.personality ?? trainerByPhone.personality,
       });
 
       return trainerByPhone._id;
@@ -134,6 +136,7 @@ export const ensureTrainer = mutation({
         phone: args.phone,
         name: args.name,
         verified: true,
+        personality: args.personality ?? trainerByEmail.personality,
       });
 
       return trainerByEmail._id;
@@ -144,14 +147,48 @@ export const ensureTrainer = mutation({
       phone: args.phone,
       name: args.name,
       plan: args.plan ?? 'free',
+      personality: args.personality ?? 'friendly',
+      onboardingStep: 'location',
       region: undefined,
       club: undefined,
+      location: undefined,
+      priceSingle: undefined,
+      pricePackage5: undefined,
+      pricePackage10: undefined,
       createdAt: Date.now(),
       magicToken: '',
       magicTokenExpiry: 0,
       verified: true,
       agentDeployed: false,
     });
+  },
+});
+
+export const updateOnboarding = mutation({
+  args: {
+    trainerId: v.id('trainers'),
+    location: v.optional(v.string()),
+    priceSingle: v.optional(v.number()),
+    pricePackage5: v.optional(v.number()),
+    pricePackage10: v.optional(v.number()),
+    onboardingStep: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const trainer = await ctx.db.get(args.trainerId);
+
+    if (!trainer) {
+      throw new Error('Trainer not found');
+    }
+
+    await ctx.db.patch(args.trainerId, {
+      location: args.location ?? trainer.location,
+      priceSingle: args.priceSingle ?? trainer.priceSingle,
+      pricePackage5: args.pricePackage5 ?? trainer.pricePackage5,
+      pricePackage10: args.pricePackage10 ?? trainer.pricePackage10,
+      onboardingStep: args.onboardingStep,
+    });
+
+    return { success: true };
   },
 });
 
@@ -196,5 +233,20 @@ export const upsertBetaTrainer = mutation({
       verified: true,
       agentDeployed: false,
     });
+  },
+});
+
+export const deleteByPhone = mutation({
+  args: { phone: v.string() },
+  handler: async (ctx, args) => {
+    const trainer = await ctx.db
+      .query('trainers')
+      .withIndex('by_phone', (q) => q.eq('phone', args.phone))
+      .first();
+    if (trainer) {
+      await ctx.db.delete(trainer._id);
+      return { deleted: true };
+    }
+    return { deleted: false };
   },
 });

@@ -10,6 +10,7 @@ type VerifyOtpPayload = {
   code?: string;
   name?: string;
   email?: string;
+  personality?: string;
 };
 
 function normalizePhone(phone: string) {
@@ -22,7 +23,7 @@ function normalizeEmail(email: string) {
 }
 
 function buildWelcomeMessage(name: string) {
-  return `Hallo ${name}! 👋 Willkommen bei PadelClaw 🎾 Ich bin dein KI-Assistent. Du kannst mir jetzt direkt über WhatsApp schreiben — zum Beispiel: "Zeig mir meine Buchungen für heute" oder "Buche morgen um 10 Uhr Padel 1". Los geht's! 🚀`;
+  return `Hallo ${name}! 👋 Willkommen bei PadelClaw 🎾 Ich bin dein persönlicher Agent — ich stelle dir kurz ein paar Fragen um alles einzurichten. Wie heißt dein Club oder deine Trainings-Location?`;
 }
 
 export async function POST(request: Request) {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
   const code = (payload.code ?? '').trim();
   const name = (payload.name ?? '').trim();
   const email = normalizeEmail(payload.email ?? '');
+  const personality = (payload.personality ?? 'friendly').trim() || 'friendly';
 
   if (phone.replace(/\D/g, '').length < 8 || code.length !== 6) {
     return NextResponse.json({ error: 'Bitte prüfe Nummer und Code.' }, { status: 400 });
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
         email,
         phone,
         plan: 'free',
+        personality,
       });
       shouldSendWelcomeMessage = !existingTrainerByPhone && !existingTrainerByEmail;
     } else {
