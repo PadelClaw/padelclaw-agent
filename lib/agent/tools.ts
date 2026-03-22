@@ -15,7 +15,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'check_slots',
-      description: 'Zeigt verfügbare Trainingslots. Nutze dies wenn der Spieler Termine sehen oder buchen möchte. Wenn der Spieler ein bestimmtes Datum nennt (z.B. "Mittwoch 25.03."), übergib es als date_preference.',
+      description: 'Zeigt freie Trainingslots. IMMER aufrufen bevor create_booking. Aufrufen wenn Spieler einen Termin sehen, anfragen oder buchen möchte.',
       parameters: {
         type: 'object',
         properties: {
@@ -30,7 +30,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'create_booking',
-      description: 'Erstellt eine Buchung im Google Calendar.',
+      description: 'Erstellt Buchung. NUR aufrufen NACHDEM Spieler eine konkrete Slot-Nummer (1-5) aus check_slots bestätigt hat. Benötigt: slot_start (ISO), player_name, player_phone.',
       parameters: {
         type: 'object',
         properties: {
@@ -46,7 +46,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'cancel_booking',
-      description: 'Storniert die neueste Buchung eines Spielers.',
+      description: 'Storniert letzte Buchung. Aufrufen wenn Spieler schreibt: stornieren, absagen, abbrechen, cancel.',
       parameters: {
         type: 'object',
         properties: {
@@ -56,22 +56,10 @@ export const toolDefinitions: ChatCompletionTool[] = [
       },
     },
   },
-  {
-    type: 'function',
-    function: {
-      name: 'get_prices',
-      description: 'Gibt aktuelle Preise zurück.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
 ]
 
 export async function executeTool(name: string, args: Record<string, string>): Promise<string> {
   const config = await getTrainerConfig()
-
-  if (name === 'get_prices') {
-    return JSON.stringify({ single: config.priceSingle, package5: config.pricePackage5, package10: config.pricePackage10 })
-  }
 
   if (name === 'check_slots') {
     if (!isGoogleCalendarEnabled()) {

@@ -7,13 +7,22 @@ import { getTrainerConfig } from '@/lib/db/trainer-config'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 
 export async function runAgent(userMessage: string, from: string): Promise<string> {
-  const soulPath = path.join(process.cwd(), 'agents/fernando/SOUL.md')
-  const soul = fs.existsSync(soulPath)
+  const config = await getTrainerConfig()
+  const soulPath = path.join(process.cwd(), 'agents/AGENT_SOUL.md')
+  const legacySoulPath = path.join(process.cwd(), 'agents/fernando/SOUL.md')
+  const rawSoul = fs.existsSync(soulPath)
     ? fs.readFileSync(soulPath, 'utf-8')
-    : 'Du bist ein hilfreicher Padel-Buchungsassistent.'
+    : fs.existsSync(legacySoulPath)
+      ? fs.readFileSync(legacySoulPath, 'utf-8')
+      : 'Du bist ein hilfreicher Padel-Buchungsassistent.'
+  const soul = rawSoul
+    .replaceAll('{{TRAINER_NAME}}', config.name)
+    .replaceAll('{{PRICE_SINGLE}}', String(config.priceSingle))
+    .replaceAll('{{PRICE_PACKAGE5}}', String(config.pricePackage5))
+    .replaceAll('{{PRICE_PACKAGE10}}', String(config.pricePackage10))
+    .replaceAll('{{LOCATION}}', config.location)
 
   // Lade Config direkt in System-Prompt — kein Tool-Call für simple Infos nötig
-  const config = await getTrainerConfig()
   const now = new Date()
   const player = await getOrCreatePlayer(from)
   const playerContext = player.name
