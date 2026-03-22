@@ -14,6 +14,7 @@ export default function BetaPage() {
   const [name, setName] = useState('');
   const [region, setRegion] = useState('');
   const [club, setClub] = useState('');
+  const [email, setEmail] = useState('');
   const [countryCode] = useState('+49');
   const [whatsAppNumber, setWhatsAppNumber] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -39,6 +40,14 @@ export default function BetaPage() {
   }
 
   async function handleSendOtp() {
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(normalizedEmail)) {
+      setError('Bitte gib eine gültige E-Mail-Adresse ein.');
+      return;
+    }
+
     if (phone.replace(/\D/g, '').length < 8) {
       setError('Bitte gib eine gültige WhatsApp-Nummer ein.');
       return;
@@ -53,7 +62,7 @@ export default function BetaPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email: normalizedEmail, phone }),
       });
 
       const result = (await response.json()) as { success?: boolean; error?: string };
@@ -315,14 +324,19 @@ export default function BetaPage() {
             {step === 3 ? (
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-lime-300">Step 3</p>
-                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">
-                  Verifiziere deine WhatsApp-Nummer
-                </h2>
+                <h2 className="mt-3 text-3xl font-bold tracking-tight text-white">Verifiziere deine E-Mail</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Du bekommst gleich eine WhatsApp von PadelClaw 🎾
+                  Wir senden dir einen Code per E-Mail.
                 </p>
 
                 <div className="mt-8 space-y-5">
+                  <Field
+                    label="E-Mail"
+                    placeholder="z.B. coach@padelclub.de"
+                    value={email}
+                    onChange={setEmail}
+                    required
+                  />
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-200">WhatsApp-Nummer</label>
                     <div className="grid grid-cols-[92px_1fr] gap-3">
@@ -347,7 +361,7 @@ export default function BetaPage() {
                       disabled={isSubmitting}
                       className="inline-flex w-full items-center justify-center rounded-2xl bg-lime-400 px-5 py-3.5 text-base font-semibold text-slate-950 transition hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {isSubmitting ? 'Sende Code...' : 'Code senden'}
+                      {isSubmitting ? 'Sende Code...' : 'Code per E-Mail senden'}
                     </button>
                   ) : (
                     <div className="space-y-5">

@@ -103,7 +103,7 @@ function OnboardingContent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), phone }),
       });
 
       const result = (await response.json()) as { success?: boolean; error?: string };
