@@ -1,0 +1,37 @@
+[
+  {
+    "id": "serve-rules",
+    "title": "Aufschlagregeln",
+    "keywords": ["aufschlag", "serve", "service", "aufschlagregel", "aufschlagregeln", "unterhand", "hüfthoehe", "hüfthöhe", "fußfehler", "doppelfehler"],
+    "content": "Der Aufschlag wird unterhand gespielt. Der Ball muss zuerst auf dem Boden aufspringen und auf oder unter Hüfthöhe getroffen werden, während mindestens ein Fuß Bodenkontakt hat. Der Aufschlag geht diagonal ins gegnerische Aufschlagfeld; Linien zählen gut. Berührt der korrekt aufspringende Aufschlag danach vor dem zweiten Aufsprung das Metallgitter, ist es ein Fehler.",
+    "sourceLabel": "FIP Regeln 2026"
+  },
+  {
+    "id": "wall-rules",
+    "title": "Wandregeln",
+    "keywords": ["wand", "glas", "gitter", "rueckwand", "rückwand", "seitenwand", "direkt an die wand", "gegen die wand"],
+    "content": "Der Ball muss zuerst im gegnerischen Feld aufspringen, bevor er dort Wand oder Gitter berührt. Direkt in die gegnerische Wand ohne vorherigen Bodenkontakt ist also nicht erlaubt. Auf der eigenen Seite darfst du nach dem Bodenkontakt die eigene Wand nutzen, um den Ball regelkonform zurückzuspielen.",
+    "sourceLabel": "FIP Regeln 2026"
+  },
+  {
+    "id": "scoring",
+    "title": "Zählweise",
+    "keywords": ["zaehlung", "zählung", "scoring", "punkte", "punktestand", "deuce", "einstand", "tiebreak", "golden point", "golden point regel", "40:40"],
+    "content": "Gezählt wird wie im Tennis: 0, 15, 30, 40, Spiel. Bei 40:40 braucht man normalerweise zwei Punkte in Folge; ein Golden Point gilt nur, wenn dieses Format vor dem Match vereinbart wurde. Ein Satz geht in der Regel bis 6 Spiele mit zwei Spielen Vorsprung, bei 6:6 folgt ein Tiebreak.",
+    "sourceLabel": "FIP Regeln 2026"
+  },
+  {
+    "id": "double-bounce-net-touch",
+    "title": "Häufige Punktverlust-Regeln",
+    "keywords": ["zweimal aufspringen", "netz beruehren", "netz berühren", "punkt verloren", "koerperkontakt", "körperkontakt", "doppelberuehrung", "doppelberührung"],
+    "content": "Ein Punkt ist verloren, wenn der Ball zweimal aufspringt, ein Team den Ball zweimal berührt, ein Spieler Netz oder Pfosten berührt, oder der Ball Körper oder Kleidung eines Spielers trifft. Auch ein Schlag vor dem Überqueren des Netzes ist regelwidrig.",
+    "sourceLabel": "FIP Regeln 2026"
+  },
+  {
+    "id": "out-of-court",
+    "title": "Out-of-Court-Spiel",
+    "keywords": ["out of court", "außerhalb des courts", "durch die tür", "durch die tuer", "court verlassen"],
+    "content": "Out-of-Court-Spiel ist nur erlaubt, wenn der Platz dafür zugelassen ist und über autorisierte Öffnungen verfügt. Dann darf ein Ball außerhalb des Courts weitergespielt werden, solange er nicht zweimal aufspringt. Im Cluballtag ist das nicht überall freigegeben.",
+    "sourceLabel": "FIP Regeln 2026"
+  }
+]

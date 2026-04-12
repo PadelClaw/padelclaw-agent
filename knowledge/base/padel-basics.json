@@ -1,0 +1,37 @@
+[
+  {
+    "id": "bandeja",
+    "title": "Bandeja",
+    "keywords": ["bandeja", "tablett", "slice overhead", "ueberkopf", "überkopf"],
+    "content": "Die Bandeja ist ein kontrollierter Überkopfschlag mit Slice. Ziel ist nicht der direkte Punktgewinn, sondern die Netzposition zu halten. Typisch ist ein eher ruhiger Schwung, ein Treffpunkt etwa auf Schulterhöhe oder etwas höher und eine tiefe Platzierung in Mitte oder Ecke. Nach dem Schlag sofort wieder mit dem Partner nach vorne arbeiten.",
+    "sourceLabel": "Padel Base"
+  },
+  {
+    "id": "vibora",
+    "title": "Vibora",
+    "keywords": ["vibora", "víbora", "viper", "seitenschnitt"],
+    "content": "Die Vibora ist der aggressivere Überkopfschlag. Sie wird mit mehr Seitenschnitt und Tempo gespielt, um Druck und einen schwachen Rückball zu erzeugen. Sie passt vor allem dann, wenn du gut unter dem Ball stehst, den Ball hoch treffen kannst und breit in den Winkel spielen willst.",
+    "sourceLabel": "Padel Base"
+  },
+  {
+    "id": "bandeja-vs-vibora",
+    "title": "Bandeja vs. Vibora",
+    "keywords": ["bandeja oder vibora", "bandeja vs vibora", "bandeja vs. vibora", "unterschied bandeja vibora", "wann bandeja", "wann vibora"],
+    "content": "Merksatz: hoher, stabiler Treffpunkt mit Zeit gleich Vibora; später oder tieferer Treffpunkt in Bewegung gleich Bandeja. Die Bandeja ist die sichere Kontrolloption zum Netzhalten, die Vibora ist die druckvollere Variante mit etwas mehr Risiko.",
+    "sourceLabel": "Padel Base"
+  },
+  {
+    "id": "chiquita",
+    "title": "Chiquita",
+    "keywords": ["chiquita", "fuesse", "füße", "transition", "netz uebernehmen", "netz übernehmen"],
+    "content": "Die Chiquita ist ein weicher, niedriger Ball auf die Füße der Gegner am Netz. Sie dient dazu, Tempo rauszunehmen, den Gegner zum Hochspielen zu zwingen und selbst nach vorne zu rücken. Wichtig ist Gefühl statt Kraft.",
+    "sourceLabel": "Padel Base"
+  },
+  {
+    "id": "lob-netz",
+    "title": "Lob und Netzposition",
+    "keywords": ["lob", "globo", "netz", "netzposition", "ans netz", "netz halten"],
+    "content": "Das zentrale Padel-Prinzip ist Netzdominanz. Wenn du hinten unter Druck bist, ist der Lob meist die beste Lösung, um Zeit zu gewinnen und das Netz zurückzuerobern. Am Netz gilt: tief platzieren, gemeinsam als Paar vorrücken und auf den Gegen-Lob vorbereitet bleiben.",
+    "sourceLabel": "Padel Base"
+  }
+]

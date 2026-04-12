@@ -5,6 +5,7 @@ import { toolDefinitions, executeTool } from './tools'
 import { getHistory, getOrCreatePlayer } from './history'
 import { getTrainerConfig } from '@/lib/db/trainer-config'
 import type { ChatCompletionMessageParam } from 'openai/resources'
+import { buildKnowledgePrompt } from './knowledge.mjs'
 
 function loadAgentSoul(personality?: string | null) {
   const fallbackPath = path.join(process.cwd(), 'agents/AGENT_SOUL.md')
@@ -45,6 +46,7 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
     ? `\n\nDer Spieler heißt: ${player.name}. Verwende diesen Namen und frage nicht erneut danach.`
     : ''
   const phoneContext = `\n\nDie WhatsApp-Nummer des Spielers ist: ${from}. Nutze diese als player_phone beim Buchen — frage NICHT danach.`
+  const knowledgePrompt = buildKnowledgePrompt(userMessage, { trainerId: config.id })
 
   const systemPrompt = `${soul}
 
@@ -55,7 +57,7 @@ export async function runAgent(userMessage: string, from: string): Promise<strin
 - Aktuelles Datum/Zeit: ${now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
 
 Nutze Tools NUR für: Slots anzeigen (check_slots), Buchung erstellen (create_booking), Buchung stornieren (cancel_booking).
-Preise und Verfügbarkeitsinfos kannst du direkt aus obigen Daten beantworten.${playerContext}${phoneContext}`
+Preise und Verfügbarkeitsinfos kannst du direkt aus obigen Daten beantworten.${playerContext}${phoneContext}${knowledgePrompt}`
 
   const history = await getHistory(from, 20)
 
